@@ -6,7 +6,114 @@
     <description>Recent content on Sayujya Apte</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sat, 22 Nov 2025 15:20:00 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sat, 22 Nov 2025 15:00:00 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>On Thread Synchronization : Part 1 - A deep dive into mutexes</title>
+      <link>https://sayujya-apte.github.io/posts/thread_synchronization_part1/</link>
+      <pubDate>Sat, 22 Nov 2025 15:00:00 +0000</pubDate>
+      
+      <guid>https://sayujya-apte.github.io/posts/thread_synchronization_part1/</guid>
+      <description>A close look at how mutexes work on a fundamental level, and how they are used to prevent race conditions</description>
+      <content:encoded><![CDATA[<p>Multithreaded programming offers many benefits - speed, efficiency, and the ability to harness every core that your processor has to offer. But of course, there is a catch - shared memory. When two or more threads try to access the same data, you enter a domain where unpredictability becomes a real concern. In such a scenario, the timing of thread execution can dramatically influence the outcome.</p>
+<p>This is where mutexes come into play. A mutex provides a way to manage shared resources such that only one thread can access a given resource at a time, thus preventing undesirable side-effects.</p>
+<h2 id="the-problem---race-conditions">The Problem - Race Conditions</h2>
+<p>A race condition is a bug where the outcome of a program depends on the unpredictable timing of two or more threads accessing a shared resource. In simple words, when multiple threads try to modify the same chunk of memory without proper coordination, the outcome is unpredictable.</p>
+<p>Let us take the following example:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;stdio.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;pthread.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> <span style="color:#a6e22e">increment_count</span>()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">1000000</span>; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>        count <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>(<span style="color:#66d9ef">int</span> argc, <span style="color:#66d9ef">char</span><span style="color:#f92672">*</span> argv[])
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pthread_t</span> thread_1, thread_2;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>thread_1, NULL, <span style="color:#f92672">&amp;</span>increment_count, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>thread_2, NULL, <span style="color:#f92672">&amp;</span>increment_count, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(thread_1, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(thread_2, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">printf</span>(<span style="color:#e6db74">&#34;%d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, count);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Here, logically we would expect the value of <code>count</code> to be 2,000,000. However, that is not true, and the actual value is an arbitrary value between 1,000,000 and 2,000,000.</p>
+<p>But why are these race conditions brought about? The key issue is that operations we think of as &ldquo;single step&rdquo; are actually multiple steps at the CPU level.</p>
+<p>Take the simple <code>count += 1</code> operation. While it may seem like an atomic operation, at the CPU level, it is actually performed in three different steps:</p>
+<ol>
+<li>Read the current value of <code>count</code> from memory into a register</li>
+<li>Increment the value of the register</li>
+<li>Write the new value back into memory.</li>
+</ol>
+<p>When two threads execute this operation simultaneously, their operations can overlap in ways that can cause non-deterministic behaviour. We can see one such instance as follows:</p>
+<ul>
+<li>Thread 1 reads <code>count</code> - let us assume it to be 1000.</li>
+<li>Thread 2 reads <code>count</code> - which is still 1000, because Thread 1 hasn&rsquo;t incremented and written back yet.</li>
+<li>Thread 1 increments, getting 1001.</li>
+<li>Thread 2 increments, getting 1001.</li>
+<li>Thread 1 writes back 1001 to memory.</li>
+<li>Thread 2 also writes back 1001 to memory.</li>
+</ul>
+<p>Both threads are individually behaving as expected, but the combined outcome is 1001 instead of 1002. This is called a lost update.</p>
+<p>A race condition refers to this &ldquo;race&rdquo; in between the threads over who complete the read-modify-write sequence before another thread interferes.</p>
+<h2 id="the-solution---mutex">The Solution - Mutex</h2>
+<p>So, if race conditions arise due to multiple threads racing to modify the same resource, why not just coordinate the threads such that only one of them can modify the resource at a given time? Well, mutexes are one of such mechanisms used to coordinate threads.</p>
+<p>Mutexes or mutex locks are a synchronization mechanism used to prevent multiple threads from accessing a shared resource at the same time.</p>
+<p>Our previous program would look something like this if we implemented mutexes:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;stdio.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;pthread.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pthread_mutex_t</span> mutex;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> <span style="color:#a6e22e">increment_count</span>()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">1000000</span>; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_lock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        count <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_unlock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>(<span style="color:#66d9ef">int</span> argc, <span style="color:#66d9ef">char</span><span style="color:#f92672">*</span> argv[])
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pthread_t</span> thread_1, thread_2;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_mutex_init</span>(<span style="color:#f92672">&amp;</span>mutex, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>thread_1, NULL, <span style="color:#f92672">&amp;</span>increment_count, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>thread_2, NULL, <span style="color:#f92672">&amp;</span>increment_count, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(thread_1, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(thread_2, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_mutex_destroy</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">printf</span>(<span style="color:#e6db74">&#34;%d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, count);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Now, we can observe that we consistently get the same expected output i.e. 2,000,000. The mutex, upon being locked, only allows the thread which has locked it to perform operations for the duration of it being locked. While this can lead to minor performance reduction, it fulfills the goal of preserving determinism.</p>
+<p>At the most fundamental level, a mutex is just an integer value (0 or 1) that tells a thread whether a lock has been acquired or not. If the thread reads the mutex as 1, it will continue to &ldquo;spin&rdquo; until it becomes 0. If it reads the mutex as 0, it will lock the mutex and continue with its operations.</p>
+<p>Now one might naturally wonder, since a mutex also exists in shared memory, what if two threads happen to try to lock a mutex at the same time? Wouldn&rsquo;t this lead to a race condition? Well, to answer that question, we would have to descend to a much lower level, closer to the CPU.</p>
+<h3 id="atomic-operations">Atomic Operations</h3>
+<p>Mutexes are built on top of low-level atomic operations provided by the hardware, like test-and-set, compare-and-swap, etc. These instructions, unlike the previously mentioned increment instruction, are atomic i.e. they are executed as a single indivisible step. Because of this, when one thread tries to acquire a lock, no other thread can interrupt the process, leading to the elimination of race conditions.</p>
+<h2 id="when-mutexes-fall-short">When mutexes fall short</h2>
+<p>While mutexes are a crucial thread synchronization method, they aren&rsquo;t always the best choice. Mutexes can introduce performance bottlenecks, especially in scenarios where multiple threads are competing for the same lock. Moreover, mutexes struggle in scenarios where you need more nuanced control over resource access. In cases like these, more advanced synchronization primitives - such as semaphores and condvars - are used instead of mutexes.</p>
+<p>In the following part of this series, we will explore how semaphores can address some of the limitations of mutexes, offering better performance in certain use cases.</p>
+]]></content:encoded>
+    </item>
+    
     <item>
       <title>Exploring x86 ASM : Building my own malloc and free</title>
       <link>https://sayujya-apte.github.io/posts/exploring_x86asm_part1/</link>
