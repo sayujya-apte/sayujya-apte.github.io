@@ -2,7 +2,7 @@
 <html lang="en" dir="auto">
 
 <head>
-	<meta name="generator" content="Hugo 0.131.0"><meta charset="utf-8">
+	<meta name="generator" content="Hugo 0.152.2"><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta name="robots" content="index, follow">
@@ -46,11 +46,38 @@
         }
 
     </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary-bg: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list-page {
+                background: var(--theme);
+            }
+
+            .list-page:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list-page:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
 </noscript>
 
 </head>
 
-<body class="list-page dark type-page kind-home layout-" id="top"><script data-no-instant>
+<body class="list-page type-page kind-home layout-" id="top"><script data-no-instant>
 function switchTheme(theme) {
   switch (theme) {
     case 'light':
@@ -111,7 +138,7 @@ function toggleThemeListener() {
 <script>
   
   (function() {
-    const defaultTheme = 'dark';
+    const defaultTheme = 'light';
     const prefTheme = getPrefTheme();
     const theme = prefTheme ? prefTheme : defaultTheme;
 
@@ -157,8 +184,17 @@ function toggleThemeListener() {
 
 
 
+<article class="first-entry home-info">
+  <header class="entry-header">
+    <h1>Sayujya Apte</h1>
+  </header>
+  <section class="entry-content">Hello there, Apte here! I am a first year Computer Science and Engineering student at Vellore Institute of Technology, with a deep passion for understanding how code works at the lowest level. I am particularly fond of programming in C, C++ and x86 Assembly, and I occassionally dabble in some Python when I need to get something done quickly.</section>
+  <footer class="entry-footer"><div class="social-icons">
+</div>
+</footer>
+</article>
 
-<article class="first-entry"> 
+<article class="post-entry"> 
   <header class="entry-header">
     <h2>On Thread Synchronization : Part 1 - A deep dive into mutexes
     </h2>
