@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Posts on Sayujya Apte</title>
+    <link>https://sayujya-apte.github.io/posts/</link>
+    <description>Recent content in Posts on Sayujya Apte</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sat, 22 Nov 2025 23:07:42 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>On Thread Synchronization : Part 1 - A deep dive into mutexes</title>
+      <link>https://sayujya-apte.github.io/posts/thread_synchronization_part1/</link>
+      <pubDate>Sat, 22 Nov 2025 23:07:42 +0000</pubDate>
+      
+      <guid>https://sayujya-apte.github.io/posts/thread_synchronization_part1/</guid>
+      <description>A close look at how mutexes work on a fundamental level, and how they are used to prevent race conditions</description>
+      <content:encoded><![CDATA[<p>Multithreaded programming offers many benefits - speed, efficiency, and the ability to harness every core that your processor has to offer. But of course, there is a catch - shared memory. When two or more threads try to access the same data, you enter a domain where unpredictability becomes a real concern. In such a scenario, the timing of thread execution can dramatically influence the outcome.</p>
+<p>This is where mutexes come into play. A mutex provides a way to manage shared resources such that only one thread can access a given resource at a time, thus preventing undesirable side-effects.</p>
+<h2 id="the-problem---race-conditions">The Problem - Race Conditions</h2>
+<p>A race condition is a bug where the outcome of a program depends on the unpredictable timing of two or more threads accessing a shared resource. In simple words, when multiple threads try to modify the same chunk of memory without proper coordination, the outcome is unpredictable.</p>
+<p>Let us take the following example:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;stdio.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;pthread.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> <span style="color:#a6e22e">increment_count</span>()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">1000000</span>; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>        count <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>(<span style="color:#66d9ef">int</span> argc, <span style="color:#66d9ef">char</span><span style="color:#f92672">*</span> argv[])
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pthread_t</span> thread_1, thread_2;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>thread_1, NULL, <span style="color:#f92672">&amp;</span>increment_count, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>thread_2, NULL, <span style="color:#f92672">&amp;</span>increment_count, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(thread_1, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(thread_2, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">printf</span>(<span style="color:#e6db74">&#34;%d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, count);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Here, logically we would expect the value of <code>count</code> to be 2,000,000. However, that is not true, and the actual value is an arbitrary value between 1,000,000 and 2,000,000.</p>
+<p>But why are these race conditions brought about? The key issue is that operations we think of as “single step” are actually multiple steps at the CPU level.</p>
+<p>Take the simple <code>count += 1</code> operation. While it may seem like an atomic operation, at the CPU level, it is actually performed in three different steps:</p>
+<ol>
+<li>Read the current value of <code>count</code> from memory into a register</li>
+<li>Increment the value of the register</li>
+<li>Write the new value back into memory</li>
+</ol>
+<p>When two threads execute this operation simultaneously, their operations can overlap in ways that can cause non-deterministic behaviour. We can see one such instance as follows:</p>
+<ul>
+<li>Thread 1 reads <code>count</code> - let us assume it to be 1000.</li>
+<li>Thread 2 reads <code>count</code> - which is still 1000, because Thread 1 hasn’t incremented and written back yet.</li>
+<li>Thread 1 increments, getting 1001.</li>
+<li>Thread 2 increments, getting 1001.</li>
+<li>Thread 1 writes back 1001 to memory.</li>
+<li>Thread 2 also writes back 1001 to memory.</li>
+</ul>
+<p>Both threads are individually behaving as expected, but the combined outcome is 1001 instead of 1002. This is called a lost update.</p>
+<p>A race condition refers to this “race” in between the threads over who complete the read-modify-write sequence before another thread interferes.</p>
+<h2 id="the-solution---mutex">The Solution - Mutex</h2>
+<p>So, if race conditions arise due to multiple threads racing to modify the same resource, why not just coordinate the threads such that only one of them can modify the resource at a given time? Well, mutexes are one of such mechanisms used to coordinate threads.</p>
+<p>Mutexes or mutex locks are a synchronization mechanism used to prevent multiple threads from accessing a shared resource at the same time.</p>
+<p>Our previous program would look something like this if we implemented mutexes:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;stdio.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;pthread.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pthread_mutex_t</span> mutex;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> <span style="color:#a6e22e">increment_count</span>()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">1000000</span>; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_lock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        count <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_unlock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>(<span style="color:#66d9ef">int</span> argc, <span style="color:#66d9ef">char</span><span style="color:#f92672">*</span> argv[])
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pthread_t</span> thread_1, thread_2;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_mutex_init</span>(<span style="color:#f92672">&amp;</span>mutex, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>thread_1, NULL, <span style="color:#f92672">&amp;</span>increment_count, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>thread_2, NULL, <span style="color:#f92672">&amp;</span>increment_count, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(thread_1, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(thread_2, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_mutex_destroy</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">printf</span>(<span style="color:#e6db74">&#34;%d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, count);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Now, we can observe that we consistently get the same expected output i.e. 2,000,000. The mutex, upon being locked, only allows the thread which has locked it to perform operations for the duration of it being locked. While this can lead to minor performance reduction, it fulfills the goal of preserving determinism.</p>
+<p>At the most fundamental level, a mutex is just an integer value (0 or 1) that tells a thread whether a lock has been acquired or not. If the thread reads the mutex as 1, it will continue to “spin” until it becomes 0. If it reads the mutex as 0, it will lock the mutex and continue with its operations.</p>
+<p>Now one might naturally wonder, since a mutex also exists in shared memory, what if two threads happen to try to lock a mutex at the same time? Wouldn’t this lead to a race condition? Well, to answer that question, we would have to descend to a much lower level, closer to the CPU.</p>
+<h3 id="atomic-operations">Atomic Operations</h3>
+<p>Mutexes are built on top of low-level atomic operations provided by the hardware, like test-and-set, compare-and-swap, etc. These instructions, unlike the previously mentioned increment instruction, are atomic i.e. they are executed as a single indivisible step. Because of this, when one thread tries to acquire a lock, no other thread can interrupt the process, leading to the elimination of race conditions.</p>
+<h2 id="when-mutexes-fall-short">When mutexes fall short</h2>
+<p>While mutexes are a crucial thread synchronization method, they aren’t always the best choice. Mutexes can introduce performance bottlenecks, especially in scenarios where multiple threads are competing for the same lock. Moreover, mutexes struggle in scenarios where you need more nuanced control over resource access. In cases like these, more advanced synchronization primitives - such as semaphores and condvars - are used instead of mutexes.</p>
+<p>In the following part of this series, we will explore how semaphores can address some of the limitations of mutexes, offering better performance in certain use cases.</p>
+]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Exploring x86 ASM : Building my own malloc and free</title>
+      <link>https://sayujya-apte.github.io/posts/exploring_x86asm_part1/</link>
+      <pubDate>Mon, 17 Nov 2025 19:20:43 +0000</pubDate>
+      
+      <guid>https://sayujya-apte.github.io/posts/exploring_x86asm_part1/</guid>
+      <description>Implementing memory management at the lowest level using Linux syscalls</description>
+      <content:encoded><![CDATA[<p>Since the past few months, I seem to have caught a bug named low-level programming. It started with C++, then I moved on to C. But before long, not even C could scratch the itch of getting ever closer to bare metal. And that is how I ended up here - writing code in pure x86 assembly.</p>
+<p>Memory management is a key element of low level programming - yet most developers are, for some reason, irrationally afraid of it. I, on the other hand, am incredibly fascinated by the idea of having the power to manually allocate and deallocate memory at my will.</p>
+<p>Most developers take <code>malloc</code> and <code>free</code> for granted - they&rsquo;re just there, doing their job in the background. But what actually happens when you allocate memory? This question is what drove me to strip away all the abstractions and build a minimal allocator from scratch.</p>
+<h2 id="the-theory">The Theory</h2>
+<p>At its core, this allocator relies on two internal Linux system calls:</p>
+<h3 id="mmap2---memory-mapping">mmap2 - Memory Mapping</h3>
+<p><code>mmap2</code> is the syscall which is used to request memory pages from the kernel. Essentially, you are asking the OS to give your process a specified region of virtual memory. Here is the parameters it takes in:</p>
+<ul>
+<li><strong>Address</strong>: Where you want the memory (pass 0 to leave it to the kernel)</li>
+<li><strong>Length</strong>: What is the size of memory required</li>
+<li><strong>Protection</strong>: What operations is the program allowed to do on this memory (e.g. read, write, etc)</li>
+<li><strong>Mapping</strong>: How visible is the memory i.e. private to this process, anonymous, etc</li>
+<li><strong>File Descriptor</strong>: Which file to map (set to -1 for anonymous memory)</li>
+<li><strong>Page Offset</strong>: Offset in the file (must be 0 for anonymous memory)</li>
+</ul>
+<p>For our implementation, we use <code>PROT_READ | PROT_WRITE</code> with <code>MAP_PRIVATE | MAP_ANONYMOUS</code>, which gives us private read-write memory that isn&rsquo;t backed by any file - exactly what we need for <code>malloc</code>.</p>
+<h3 id="munmap---memory-unmapping">munmap - Memory Unmapping</h3>
+<p><code>munmap</code> is the inverse operation of <code>mmap2</code>. It tells the OS kernel to deallocate a chunk of memory once we are done using it. Here is the parameters it takes in:</p>
+<ul>
+<li><strong>Address</strong>: The starting address of the memory region</li>
+<li><strong>Length</strong>: The size of the memory region
+The kernel then marks those pages as &ldquo;freed&rdquo;, which means that those regions of memory can be reallocated to other programs.</li>
+</ul>
+<h3 id="the-interface-layer">The Interface Layer</h3>
+<p>The big idea behind this project is simple - create wrapper functions that interface with these system calls. Instead of the programmer having to fiddle with <code>mmap2</code> flags and protection, he will simply call <code>malloc(size)</code> and <code>free(ptr)</code>.
+Another key addition in this implementation is the header. The header is 8 bytes of memory prefixing the allocated memory block - the first four bytes contains the metadata i.e. the size of the memory block, and the next four bytes contains a magic number that is used for validation. This is useful because the <code>munmap</code> syscall requires the length of the memory to be freed, and instead of keeping track of this as a separate variable, we can prefix this in the header itself.</p>
+<h2 id="the-implementation">The Implementation</h2>
+<p>To start off, we declare some static variables as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nasm" data-lang="nasm"><span style="display:flex;"><span><span style="color:#66d9ef">section</span> .data
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">MAGIC</span><span style="color:#66d9ef">          equ</span> <span style="color:#ae81ff">0xDEADC0DE</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">HEADER_SIZE</span><span style="color:#66d9ef">    equ</span> <span style="color:#ae81ff">8</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">SYSCALL_mmap2</span><span style="color:#66d9ef">  equ</span> <span style="color:#ae81ff">192</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">SYSCALL_munmap</span><span style="color:#66d9ef"> equ</span> <span style="color:#ae81ff">91</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">PROT_READ</span><span style="color:#66d9ef">      equ</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">PROT_WRITE</span><span style="color:#66d9ef">     equ</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">PROT_RW</span><span style="color:#66d9ef">        equ</span> (PROT_READ <span style="color:#f92672">|</span> PROT_WRITE)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">MAP_PRIVATE</span><span style="color:#66d9ef">    equ</span> <span style="color:#ae81ff">0x02</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">MAP_ANONYMOUS</span><span style="color:#66d9ef">  equ</span> <span style="color:#ae81ff">0x20</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">MAP_FLAGS</span><span style="color:#66d9ef">      equ</span> (MAP_PRIVATE <span style="color:#f92672">|</span> MAP_ANONYMOUS)
+</span></span></code></pre></div><p>Some of these are self explanatory - like <code>MAP_PRIVATE</code> and <code>PROT_READ</code>. The others, we will get into very soon.</p>
+<h3 id="the-allocator---malloc">The allocator - <code>malloc</code></h3>
+<p>Our malloc function takes in one parameter over the stack - which is the size of memory to be allocated. As an output, it returns the pointer to the beginning of the memory block in the <code>eax</code> register.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nasm" data-lang="nasm"><span style="display:flex;"><span>malloc:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">push</span> ebp                    <span style="color:#75715e">; Prologue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebp, esp
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, [ebp<span style="color:#f92672">+</span><span style="color:#ae81ff">8</span>]            <span style="color:#75715e">; Load eax with the input param</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">test</span> eax, eax               <span style="color:#75715e">; Check if requested memory size is 0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">jz</span> .malloc_zero
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">add</span> eax, HEADER_SIZE        <span style="color:#75715e">; Allocate space for the header</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ecx, eax                <span style="color:#75715e">; ecx contains length of memory (for mmap2)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">xor</span> ebx, ebx                <span style="color:#75715e">; ebx contains address of memory (for mmap2)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> edx, PROT_RW            <span style="color:#75715e">; edx contains protection flags (for mmap2)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> esi, MAP_FLAGS          <span style="color:#75715e">; esi contains mapping flags (for mmap2)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> edi, <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>                 <span style="color:#75715e">; edi contains file descriptor (for mmap2)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">push</span> ebp
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">xor</span> ebp, ebp                <span style="color:#75715e">; ebp contains page offset (for mmap2)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, SYSCALL_mmap2      <span style="color:#75715e">; mmap2 syscall</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">int</span> <span style="color:#ae81ff">0x80</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pop</span> ebp
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cmp</span> eax, <span style="color:#ae81ff">0xfffff000</span>         <span style="color:#75715e">; Check if returned pointer is valid</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">jae</span> .malloc_fail
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> [eax], ecx              <span style="color:#75715e">; Store the size of memory in header</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> <span style="color:#66d9ef">dword</span> [eax <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>], MAGIC  <span style="color:#75715e">; Store the magic number in header</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">add</span> eax, HEADER_SIZE        <span style="color:#75715e">; Move the pointer to the start of usable memory</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> esp, ebp                <span style="color:#75715e">; Epilogue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pop</span> ebp
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>.malloc_zero:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">xor</span> eax, eax                <span style="color:#75715e">; Return a NULL pointer if zero bytes requested</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> esp, ebp                <span style="color:#75715e">; Epilogue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pop</span> ebp
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>.malloc_fail:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">xor</span> eax, eax                <span style="color:#75715e">; Return a NULL pointer if mmap2 failed</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> esp, ebp                <span style="color:#75715e">; Epilogue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pop</span> ebp
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+</span></span></code></pre></div><p>When the programmer calls the <code>malloc</code> function, here&rsquo;s what happens:</p>
+<ol>
+<li><strong>Size validation</strong>: If zero bytes of memory is requested, the function returns NULL immediately.</li>
+<li><strong>Header allocation</strong>: It allocates an extra 8 bytes of memory to hold the metadata.</li>
+<li><strong>System call</strong>: It calls <code>mmap2</code> to request memory from the kernel with read/write permissions.</li>
+<li><strong>Metadata storage</strong>: It stores the size of the allocation and the magic number 0xDEADC0DE in the header.</li>
+<li><strong>Pointer adjustment</strong>: It returns a pointer which points to the beginning of the useable memory block.</li>
+</ol>
+<h3 id="the-deallocator---free">The deallocator - <code>free</code></h3>
+<p>Our free function also takes in one parameter over the stack - which is the pointer to the beginning of the memory block to be freed. It deduces the size of the memory block from the header we created earlier.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nasm" data-lang="nasm"><span style="display:flex;"><span>free:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">push</span> ebp                    <span style="color:#75715e">; Prologue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebp, esp
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, [ebp<span style="color:#f92672">+</span><span style="color:#ae81ff">8</span>]            <span style="color:#75715e">; Load eax with the input param</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">test</span> eax, eax               <span style="color:#75715e">; Check if input is NULL pointer</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">jz</span> .free_done
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sub</span> eax, HEADER_SIZE        <span style="color:#75715e">; Move the pointer back to read the header</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebx, eax                <span style="color:#75715e">; ebx now points to the size in header</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ecx, [ebx<span style="color:#f92672">+</span><span style="color:#ae81ff">4</span>]            <span style="color:#75715e">; ecx now points to the magic number in header</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cmp</span> ecx, MAGIC              <span style="color:#75715e">; Validate if magic number is valid</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">jne</span> .bad_magic
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> edx, [ebx]              <span style="color:#75715e">; edx contains the size of memory (for munmap)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, SYSCALL_munmap     <span style="color:#75715e">; munmap syscall</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ecx, edx
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">int</span> <span style="color:#ae81ff">0x80</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">jmp</span> .free_done
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>.bad_magic:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">nop</span>                         <span style="color:#75715e">; Error handling logic if memory is corrupted</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>.free_done:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> esp, ebp                <span style="color:#75715e">; Epilogue</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pop</span> ebp
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+</span></span></code></pre></div><p>When the programmer calls the <code>free</code> function, here&rsquo;s what happens:</p>
+<ol>
+<li><strong>NULL check</strong>: If the pointer passed is a NULL pointer, the function does nothing and exits.</li>
+<li><strong>Header retrieval</strong>: It goes back 8 bytes in memory from the pointer to deduce the header.</li>
+<li><strong>Validation</strong>: It checks for the magic number to detect corruption.</li>
+<li><strong>Size retrieval</strong>: It retrieves the size of the block to be freed from the metadata.</li>
+<li><strong>System call</strong>: It calls <code>munmap</code> to return the memory back to the operating system.</li>
+</ol>
+<h2 id="example-usage">Example Usage</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nasm" data-lang="nasm"><span style="display:flex;"><span>_start:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">push</span> <span style="color:#66d9ef">dword</span> <span style="color:#ae81ff">4096</span>     <span style="color:#75715e">; Pass 4096 to malloc</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">call</span> malloc
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebx, eax        <span style="color:#75715e">; Move output pointer to ebx</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">test</span> ebx, ebx       <span style="color:#75715e">; Check if ebx is NULL pointer</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">jz</span> .exit
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">push</span> ebx            <span style="color:#75715e">; Pass ebx to free</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">call</span> free
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>.exit:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebx, <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">int</span> <span style="color:#ae81ff">0x80</span>
+</span></span></code></pre></div><p>Compiling this program with NASM and linking it with ld, we find out that this program compiles without any errors, and more importantly, no SEGFAULTs.
+If we run <code>strace</code> on this program, we can see the syscalls made by this program</p>
+<pre tabindex="0"><code>mmap2(NULL, 4104, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xf7f56000
+munmap(0xf7f56000, 4104)                = 0
+exit(0)                                 = ?
+</code></pre><p>We can see that the memory allocated is 4096+8 bytes, and the memory freed is corresponding to the memory allocated. Hence, we can conclude that we successfully implemented <code>malloc</code> and <code>free</code>.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>This project was a fantastic deep-dive into low level memory management. While something like this is completely pointless to be used in production, building it gave me a deeper appreciation for the existing and more sophisticated allocators.
+The full source code of this program is available <a href="https://gist.github.com/sayujya-apte/bb9b387283e93012b731c0e621f8f6e8">here</a>.</p>
+]]></content:encoded>
+    </item>
+    
+  </channel>
+</rss>
