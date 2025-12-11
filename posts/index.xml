@@ -6,7 +6,243 @@
     <description>Recent content in Posts on Sayujya Apte</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sat, 22 Nov 2025 23:07:42 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 11 Dec 2025 17:09:33 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>On Thread Synchronization : Part 2 - An overview of semaphores</title>
+      <link>https://sayujya-apte.github.io/posts/thread_synchronization_part2/</link>
+      <pubDate>Thu, 11 Dec 2025 17:09:33 +0000</pubDate>
+      
+      <guid>https://sayujya-apte.github.io/posts/thread_synchronization_part2/</guid>
+      <description>An overview of what semaphores are and how they enable coordinated access to shared resources</description>
+      <content:encoded><![CDATA[<p>In the previous post of this series, we looked at we explored what mutexes are and how they solve the problem of race conditions at a fundamental level by ensuring mutual exclusion. While mutexes are incredibly powerful and have several uses, they possess the limitation of being inherently binary - a resource is either locked or it isn&rsquo;t. But what would happen when you require multiple threads to access a single resource? In the case of mutexes, all of those threads compete for the same lock, which can introduce performance bottlenecks.</p>
+<p>In this case, we have to resort to a more advanced synchronization primitive called a semaphore.</p>
+<h2 id="the-problem---producer-and-consumer">The Problem - Producer and Consumer</h2>
+<p>Consider the following scenario - you have one or more &ldquo;producer&rdquo; threads inserting some data into a buffer, and one or more &ldquo;consumer&rdquo; threads removing some data from that same buffer. You need to co-ordinate all the threads such that:</p>
+<ol>
+<li>The producer threads do not add data to the buffer when it is full</li>
+<li>The consumer threads do not attempt to remove data from the buffer when it is empty</li>
+<li>The buffer itself is not corrupted by simultaneous access</li>
+</ol>
+<p>This is a classic scenario called the Producer-Consumer problem. It can be solved using just mutexes in a naive manner, as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;stdio.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;stdlib.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;pthread.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;unistd.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define BUFFER_SIZE 5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> buffer[BUFFER_SIZE];
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pthread_mutex_t</span> mutex;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> <span style="color:#a6e22e">producer</span>(<span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> arg)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> item;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">10</span>; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>        item <span style="color:#f92672">=</span> <span style="color:#a6e22e">rand</span>() <span style="color:#f92672">%</span> <span style="color:#ae81ff">100</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_lock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Busy waiting for buffer to not be full
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">while</span> (count <span style="color:#f92672">==</span> BUFFER_SIZE)
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">pthread_mutex_unlock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">usleep</span>(<span style="color:#ae81ff">1000</span>);
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">pthread_mutex_lock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        buffer[count] <span style="color:#f92672">=</span> item;
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">printf</span>(<span style="color:#e6db74">&#34;Produced %d at slot %d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, item, i);
+</span></span><span style="display:flex;"><span>        count<span style="color:#f92672">++</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_unlock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">usleep</span>(<span style="color:#ae81ff">100000</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>} 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> <span style="color:#a6e22e">consumer</span>(<span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> arg)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">10</span>; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_lock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Busy waiting for buffer to not be empty
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">while</span> (count <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">pthread_mutex_unlock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">usleep</span>(<span style="color:#ae81ff">1000</span>);
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">pthread_mutex_lock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> item <span style="color:#f92672">=</span> buffer[count <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span>];
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">printf</span>(<span style="color:#e6db74">&#34;Consumed %d from slot %d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, item, i);
+</span></span><span style="display:flex;"><span>        count<span style="color:#f92672">--</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_unlock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">usleep</span>(<span style="color:#ae81ff">150000</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>(<span style="color:#66d9ef">int</span> argc, <span style="color:#66d9ef">char</span><span style="color:#f92672">*</span> argv[])
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pthread_t</span> prod1, prod2, prod3; <span style="color:#75715e">// Producer threads 
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">pthread_t</span> cons1, cons2, cons3; <span style="color:#75715e">// Consumer threads
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_mutex_init</span>(<span style="color:#f92672">&amp;</span>mutex, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>prod1, NULL, <span style="color:#f92672">&amp;</span>producer, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>prod2, NULL, <span style="color:#f92672">&amp;</span>producer, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>prod3, NULL, <span style="color:#f92672">&amp;</span>producer, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>cons1, NULL, <span style="color:#f92672">&amp;</span>consumer, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>cons2, NULL, <span style="color:#f92672">&amp;</span>consumer, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>cons3, NULL, <span style="color:#f92672">&amp;</span>consumer, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(prod1, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(prod2, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(prod3, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(cons1, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(cons2, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(cons3, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_mutex_destroy</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>In this example, we have three producer threads and three consumer threads. The producer threads insert a random value into the buffer, which is an array with 5 elements. Meanwhile, the consumer threads read the values in the buffer on a first in-first out basis and prints them to the console. A mutex lock ensures that only one thread can access the buffer at a single time.</p>
+<p>The problem with using mutexes in this scenario is that the mutex doesn&rsquo;t tell me exactly when the buffer is empty or full. When I encounter a situation when I cannot operate on the buffer, like when it is full for the producer or empty for the consumer,the most optimum path forward is to sleep for an arbitrary amount of time and recheck if my condition has been satisfied. Essentially, a mutex cannot say &ldquo;block this thread until there is space in the buffer&rdquo; or &ldquo;wake this thread when an item becomes available&rdquo;. This leads to needless busy-waiting scenarios which in turn introduce bottlenecks.</p>
+<h2 id="the-solution---semaphore">The Solution - Semaphore</h2>
+<p>A semaphore is a synchronization primitive that maintains a numerical value and provides two atomic operations: wait (also known as P) and signal (also known as V or post). They were developed by legendary mathematician Edsgar Djikstra. Unlike a mutex, a semaphore is non-binary and can actually &ldquo;count&rdquo; in a sense.</p>
+<p>At its very core, a semaphore represents a count of available resources, in the sense that the integer value represents how many resources are available. When a thread wants to use a resource, it performs a wait operation. When the thread is finished with that resource, it performs a signal operation.</p>
+<p>The two operations of a semaphore work as follows:</p>
+<p><strong>wait (P)</strong>:</p>
+<ul>
+<li>If the semaphore value is greater than 0, decrement it atomically</li>
+<li>If the semaphore value is 0, block the thread until it becomes greater than 0</li>
+</ul>
+<p><strong>signal (V)</strong>:</p>
+<ul>
+<li>Increment the semaphore value atomically</li>
+<li>If any of the threads are blocked waiting, wake one of them up</li>
+</ul>
+<h3 id="types-of-semaphores">Types of semaphores</h3>
+<ol>
+<li>
+<p><strong>Binary semaphores</strong>:
+Binary semaphores have either a value of 0 or 1, hence they function essentially like a mutex lock. However, a key difference between a mutex lock and a binary semaphore is that any thread can signal a binary semaphore, unlike a mutex lock, which can only be unlocked by the thread that acquired it.</p>
+</li>
+<li>
+<p><strong>Counting semaphores</strong>:
+Unlike binary semaphores, counting semaphores can have any non-negative integer value. Hence, they can be used to represent multiple instances of a resource.</p>
+</li>
+</ol>
+<p>Revisting the producer-consumer problem, this time we solve it using two counting semaphores and a mutex lock:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;stdio.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;pthread.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;semaphore.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;stdlib.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;unistd.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define BUFFER_SIZE 5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> buffer[BUFFER_SIZE];
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> in <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> out <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">sem_t</span> empty_slots; <span style="color:#75715e">// Semaphore to count empty slots
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">sem_t</span> full_slots;  <span style="color:#75715e">// Semaphore to count full slots
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">pthread_mutex_t</span> mutex;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> <span style="color:#a6e22e">producer</span>(<span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> arg)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> item;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">10</span>; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>        item <span style="color:#f92672">=</span> <span style="color:#a6e22e">rand</span>() <span style="color:#f92672">%</span> <span style="color:#ae81ff">100</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">sem_wait</span>(<span style="color:#f92672">&amp;</span>empty_slots); <span style="color:#75715e">// Producer &#34;waits&#34; on empty_slots
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">pthread_mutex_lock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        buffer[in] <span style="color:#f92672">=</span> item;
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">printf</span>(<span style="color:#e6db74">&#34;Produced: %d at position %d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, item, in);
+</span></span><span style="display:flex;"><span>        in <span style="color:#f92672">=</span> (in <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>) <span style="color:#f92672">%</span> BUFFER_SIZE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_unlock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">sem_post</span>(<span style="color:#f92672">&amp;</span>full_slots); <span style="color:#75715e">// Producer &#34;signals&#34; full_slots
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">usleep</span>(<span style="color:#ae81ff">100000</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> <span style="color:#a6e22e">consumer</span>(<span style="color:#66d9ef">void</span><span style="color:#f92672">*</span> arg)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> item;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">10</span>; i<span style="color:#f92672">++</span>)
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">sem_wait</span>(<span style="color:#f92672">&amp;</span>full_slots); <span style="color:#75715e">// Consumer &#34;waits&#34; on full_slots
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">pthread_mutex_lock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        item <span style="color:#f92672">=</span> buffer[out];
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">printf</span>(<span style="color:#e6db74">&#34;Consumed: %d from position %d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, item, out);
+</span></span><span style="display:flex;"><span>        out <span style="color:#f92672">=</span> (out <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>) <span style="color:#f92672">%</span> BUFFER_SIZE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">pthread_mutex_unlock</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">sem_post</span>(<span style="color:#f92672">&amp;</span>empty_slots); <span style="color:#75715e">// Consumer &#34;signals&#34; empty_slots
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">usleep</span>(<span style="color:#ae81ff">150000</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>(<span style="color:#66d9ef">int</span> argc, <span style="color:#66d9ef">char</span><span style="color:#f92672">*</span> argv[])
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pthread_t</span> prod1, prod2, prod3;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pthread_t</span> cons1, cons2, cons3;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sem_init</span>(<span style="color:#f92672">&amp;</span>empty_slots, <span style="color:#ae81ff">0</span>, BUFFER_SIZE);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sem_init</span>(<span style="color:#f92672">&amp;</span>full_slots, <span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_mutex_init</span>(<span style="color:#f92672">&amp;</span>mutex, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>prod1, NULL, <span style="color:#f92672">&amp;</span>producer, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>prod2, NULL, <span style="color:#f92672">&amp;</span>producer, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>prod3, NULL, <span style="color:#f92672">&amp;</span>producer, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>cons1, NULL, <span style="color:#f92672">&amp;</span>consumer, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>cons2, NULL, <span style="color:#f92672">&amp;</span>consumer, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_create</span>(<span style="color:#f92672">&amp;</span>cons3, NULL, <span style="color:#f92672">&amp;</span>consumer, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(prod1, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(prod2, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(prod3, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(cons1, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(cons2, NULL);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_join</span>(cons3, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pthread_mutex_destroy</span>(<span style="color:#f92672">&amp;</span>mutex);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sem_destroy</span>(<span style="color:#f92672">&amp;</span>empty_slots);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sem_destroy</span>(<span style="color:#f92672">&amp;</span>full_slots);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>In this example, the <code>empty_slots</code> semaphore tracks how many empty positions are available in the buffer, while the <code>full_slots</code> semaphore tracks how many items in the buffer are ready to be consumed. The producer threads wait on <code>empty_slots</code> before producing, which essentially entails that if <code>empty_slots</code> &gt; 0, the producer thread can produce the value, and if <code>empty_slots</code> = 0, the producer thread will get blocked until an empty slot becomes available. Conversely, the consumer threads wait on <code>full_slots</code> before consuming from the buffer, which essentially entails that if <code>full_slots</code> &gt; 0, the consumer thread can consume the value, however if <code>full_slots</code> = 0, the consumer thread will get blocked until a consumable value becomes available in the buffer. A mutex is still used to ensure that only one thread actually modifies the buffer at a time.</p>
+<p>In summary, at the most fundamental level, a semaphore contains of an integer value and a queue of waiting threads. When <code>sem_wait()</code> is called, the system atomically checks if the value is greater than 0. If yes, then it decrements the value and the thread continues. If no, then the thread is added to the queue of waiting threads and blocked. When <code>sem_post()</code> is called, the system atomically increases the value and wakes up a waiting thread.</p>
+<p>Just like mutexes, semaphores also rely on atomic operations at a hardware level to prevent race conditions on the semaphore value itself.</p>
+<h2 id="when-semaphores-fall-short">When semaphores fall short</h2>
+<p>While semaphores are much more flexible and efficient than mutexes in some cases, they are not without their shortcomings.</p>
+<p>One major issue is that semaphores are purely count-based. They can tell you &ldquo;there are n resources available&rdquo; but they cannot be used to implement complex conditions such as &ldquo;wake the thread up when the buffer is half-full&rdquo;. For such cases, you would need to manually track the state of the buffer and use multiple semaphores, which can quickly become needlessly complex and increasingly prone to errors.</p>
+<p>Semaphores are also blurry when it comes to the concept of ownership. While a mutex knows which thread has locked it, and can be only unlocked by that thread, a semaphore does not care which thread performs wait or signal operations. Because of this, one must be especially careful when using semaphores, as debugging them can be difficult. A common bug occurs when a thread signals a semaphore even when it hasn&rsquo;t waited on it, leading to over-signalling bugs where more threads enter a critical section than intended.</p>
+<p>In scenarios where you need complex conditions rather than simply counting resources, another synchronization primitive called conditional variables provide a more intuitive and efficient solution. In the following part of the series, we will have a look at condvars, and how they enable threads to efficiently wait for certain conditions.</p>
+]]></content:encoded>
+    </item>
+    
     <item>
       <title>On Thread Synchronization : Part 1 - A deep dive into mutexes</title>
       <link>https://sayujya-apte.github.io/posts/thread_synchronization_part1/</link>
