@@ -56,7 +56,7 @@
   "keywords": [
     
   ],
-  "wordCount" : "1516",
+  "wordCount" : "1513",
   "inLanguage": "en",
   "datePublished": "2025-12-11T17:09:33Z",
   "dateModified": "2025-12-11T17:09:33Z",
@@ -180,7 +180,7 @@ function toggleThemeListener() {
       
     </div>
   </header> 
-  <div class="post-content"><p>In the previous post of this series, we looked at we explored what mutexes are and how they solve the problem of race conditions at a fundamental level by ensuring mutual exclusion. While mutexes are incredibly powerful and have several uses, they possess the limitation of being inherently binary - a resource is either locked or it isn&rsquo;t. But what would happen when you require multiple threads to access a single resource? In the case of mutexes, all of those threads compete for the same lock, which can introduce performance bottlenecks.</p>
+  <div class="post-content"><p>In the previous post of this series, we explored what mutexes are and how they solve the problem of race conditions at a fundamental level by ensuring mutual exclusion. While mutexes are incredibly powerful and have several uses, they possess the limitation of being inherently binary - a resource is either locked or it isn&rsquo;t. But what would happen when you require multiple threads to access a single resource? In the case of mutexes, all of those threads compete for the same lock, which can introduce performance bottlenecks.</p>
 <p>In this case, we have to resort to a more advanced synchronization primitive called a semaphore.</p>
 <h2 id="the-problem---producer-and-consumer">The Problem - Producer and Consumer<a hidden class="anchor" aria-hidden="true" href="#the-problem---producer-and-consumer">¶</a></h2>
 <p>Consider the following scenario - you have one or more &ldquo;producer&rdquo; threads inserting some data into a buffer, and one or more &ldquo;consumer&rdquo; threads removing some data from that same buffer. You need to co-ordinate all the threads such that:</p>
