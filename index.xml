@@ -6,7 +6,92 @@
     <description>Recent content on Sayujya Apte</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 11 Dec 2025 17:09:33 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Mon, 19 Jan 2026 21:24:32 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Exploring x86 ASM : Runtime code modification and creating mutating programs</title>
+      <link>https://sayujya-apte.github.io/posts/exploring_x86asm_part2/</link>
+      <pubDate>Mon, 19 Jan 2026 21:24:32 +0000</pubDate>
+      
+      <guid>https://sayujya-apte.github.io/posts/exploring_x86asm_part2/</guid>
+      <description>&lt;p&gt;Code, once written by the programmer and compiled into an executable, is usually treated as immutable. Yet, at the lowest level of execution, this immutability is more of a suggestion than a rule, enforced by operating systems rather than the hardware itself. In reality, code is just stored in the memory within the text section, and as you can with any other location in memory, you can modify it at runtime, given that you have the right privileges.&lt;/p&gt;</description>
+      <content:encoded><![CDATA[<p>Code, once written by the programmer and compiled into an executable, is usually treated as immutable. Yet, at the lowest level of execution, this immutability is more of a suggestion than a rule, enforced by operating systems rather than the hardware itself. In reality, code is just stored in the memory within the text section, and as you can with any other location in memory, you can modify it at runtime, given that you have the right privileges.</p>
+<p>This simple realisation opens the door to several possibilities - the greatest being the ability to create programs that can mutate themselves at runtime. Functions, that are programmed to do one task, but end up doing something else entirely. In this post, we explore how we can create such mutating programs, what uses do they have, and why they can be potentially dangerous.</p>
+<h2 id="the-background">The Background</h2>
+<p>In a program&rsquo;s memory, code is stored as instructions in the text section. These instructions are stored in the typical opcode-operand format. Now, if a different instruction changes the value of either the opcode or the operand at the memory location of the first instruction, the first instruction has been mutated. The CPU itself won&rsquo;t object to this, because it only reads and interprets the memory.</p>
+<p>The only thing stopping someone from doing so is the operating system. In a typical program, different sections of memory are assigned different privileges. Each segment has three permission bits - read, write, and execute. The text segment of the program conventionally only has read and execute privileges. This provision exists for several purposes, such as preventing malicious attacks by intjecting executable code, or preventing bugs from corrupting program logic. In fact, the CPU can even cache the code more aggressively if it knows that it won&rsquo;t change.</p>
+<h2 id="the-implementation">The Implementation</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nasm" data-lang="nasm"><span style="display:flex;"><span><span style="color:#66d9ef">section</span> .data
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">SYSCALL_write</span> db <span style="color:#ae81ff">4</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">SYSCALL_mprotect</span> db <span style="color:#ae81ff">125</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">PROT_READ</span><span style="color:#66d9ef"> equ</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">PROT_WRITE</span><span style="color:#66d9ef"> equ</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">PROT_EXEC</span><span style="color:#66d9ef"> equ</span> <span style="color:#ae81ff">4</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">PROT_RWX</span><span style="color:#66d9ef"> equ</span> (PROT_READ <span style="color:#f92672">|</span> PROT_WRITE <span style="color:#f92672">|</span> PROT_EXEC)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">newline</span> db <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">section</span> .bss
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">result</span> rsb <span style="color:#ae81ff">4</span>        <span style="color:#75715e">; Result buffer to temporarily store value</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">section</span> .text
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">global</span> _start
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>modifiable_func:
+</span></span><span style="display:flex;"><span>instr_to_modify:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, <span style="color:#ae81ff">5</span>          <span style="color:#75715e">; Instruction that we intend to modify</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ret</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>_start:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, SYSCALL_mprotect       <span style="color:#75715e">; mprotect syscall</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebx, modifiable_func        <span style="color:#75715e">; ebx contains memory address (for mprotect)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">and</span> ebx, <span style="color:#ae81ff">0xFFFFF000</span>             <span style="color:#75715e">; align the memory address to the page boundary</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ecx, <span style="color:#ae81ff">4096</span>                   <span style="color:#75715e">; ecx contains the size of the memory block (for mprotect)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> edx, PROT_RWX               <span style="color:#75715e">; edx contains the new protection flags (for mprotect)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">int</span> <span style="color:#ae81ff">0x80</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">call</span> modifiable_func            <span style="color:#75715e">; First time we call, the value in eax will be 5</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, [result]
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, SYSCALL_write
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebx, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ecx, result
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> edx, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">int</span> <span style="color:#ae81ff">0x80</span>                        <span style="color:#75715e">; Output : 5</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, SYSCALL_write
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebx, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ecx, newline
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> edx, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">int</span> <span style="color:#ae81ff">0x80</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> <span style="color:#66d9ef">byte</span> [instr_to_modify <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>], <span style="color:#ae81ff">6</span> <span style="color:#75715e">; Modifying the opcode of the given instruction</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">call</span> modifiable_func            <span style="color:#75715e">; Second time we call, the value in eax will be 6</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, [result]
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, SYSCALL_write
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ebx, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> ecx, result
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> edx, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">int</span> <span style="color:#ae81ff">0x80</span>                        <span style="color:#75715e">; Output : 6</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mov</span> eax, <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">xor</span> ebx, ebx
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">int</span> <span style="color:#ae81ff">0x80</span>
+</span></span></code></pre></div><p>In the above program, we have declared the function we intend to modify in the text section. Additionally, we have also added a label to the specific instruction that we want to modify.</p>
+<p>At the very beginning of the <code>_start</code> function, we make a system call to <code>mprotect</code>. <code>mprotect</code> is the syscall used to change the memory access protections for the calling process&rsquo;s memory pages. The function takes in the address, aligned to a page boundary, a size, the size of the page in consideration, and the new protection flags that are to be assigned to the memory block. In this case, we pass the address of the modifiable function, along with a page size of 4096, and requesting privileges to read, write, and execute.</p>
+<p>Then, the program calls the modifiable function, which places 5 in the <code>eax</code> register. It then print the contents of <code>eax</code>. After this, the program actually starts mutating code. It goes to the memory location of the instruction to be modified, moves one byte further (that one byte corresponds to the opcode), and changes the operand from a 5 to a 6. And after calling the function and printing the contents of <code>eax</code>, we can see that the mutation has succeeded.</p>
+<h2 id="applications">Applications</h2>
+<p>Practical applications of self-modifying code are few and far between. From an optimization standpoint, mutating code can be used to optimize loops via unrolling and dynamically adjusting loop counters based on runtime data sizes, however any benefit gained from this will be negated by the performance drop caused by the loss of cacheing of instructions.</p>
+<p>A more realistic use of this can be in DRM protection and anti-reverse engineering measures. For example, if a program detects that it is being run inside a debugger, it will intentionally abstract and obfuscate the code to prevent analysis and subsequent reverse engineering.</p>
+<p>However, this paradigm can also lead itself to more malicious applications. Using this technique, one can create a polymorphic virus, with code that mutates with every infection. Changing minor things, like the instruction order or registers used can be enough to morph the signature enough and evade detection. This technique can also be used to create runtime metamorphic viruses, where the virus changes its own code completely while still preserving its funcion.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Just like most of my previous projects, this one as well is not something that should be applied in the real world. However, watching a function return different values from the exact same function call, knowing I had rewritten the instructions within mid-execution, gave me a visceral understanding of how fragile the boundary between code and data really is. The full source code of the program can be found here.</p>
+]]></content:encoded>
+    </item>
+    
     <item>
       <title>On Thread Synchronization : Part 2 - An overview of semaphores</title>
       <link>https://sayujya-apte.github.io/posts/thread_synchronization_part2/</link>

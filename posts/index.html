@@ -125,6 +125,26 @@ function toggleThemeListener() {
         <div class="logo">
             <a href="https://sayujya-apte.github.io/" accesskey="h" title="Sayujya Apte (Alt + H)">Sayujya Apte</a>
             <span class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
             </span>
         </div>
         <ul id="menu">
@@ -144,6 +164,24 @@ function toggleThemeListener() {
 
 
 
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2>Exploring x86 ASM : Runtime code modification and creating mutating programs
+    </h2>
+  </header>
+  <section class="entry-content">
+    
+      <p>Code, once written by the programmer and compiled into an executable, is usually treated as immutable. Yet, at the lowest level of execution, this immutability is more of a suggestion than a rule, enforced by operating systems rather than the hardware itself. In reality, code is just stored in the memory within the text section, and as you can with any other location in memory, you can modify it at runtime, given that you have the right privileges.
+...</p>
+    
+  </section>
+  <footer class="entry-footer"><span class="meta-item">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar" style="user-select: text;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" style="user-select: text;"></rect><line x1="16" y1="2" x2="16" y2="6" style="user-select: text;"></line><line x1="8" y1="2" x2="8" y2="6" style="user-select: text;"></line><line x1="3" y1="10" x2="21" y2="10" style="user-select: text;"></line></svg>
+  <span>January 19, 2026</span></span>
+</footer>
+  <a class="entry-link" aria-label="post link to Exploring x86 ASM : Runtime code modification and creating mutating programs" href="https://sayujya-apte.github.io/posts/exploring_x86asm_part2/"></a>
+</article>
 
 <article class="post-entry"> 
   <header class="entry-header">
@@ -198,7 +236,7 @@ function toggleThemeListener() {
     </main>
     
 <footer class="footer">
-  <span>&copy; 2025 <a href="https://sayujya-apte.github.io/">Sayujya Apte</a></span><span style="display: inline-block; margin-left: 1em;">
+  <span>&copy; 2026 <a href="https://sayujya-apte.github.io/">Sayujya Apte</a></span><span style="display: inline-block; margin-left: 1em;">
     <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>
   </span>
   <span style="display: inline-block; margin-left: 1em;">
@@ -216,7 +254,7 @@ function toggleThemeListener() {
 <script>
   (function() {
      
-    const disableThemeToggle = '1' == '1';
+    const disableThemeToggle = '' == '1';
     if (disableThemeToggle) {
       return;
     }
