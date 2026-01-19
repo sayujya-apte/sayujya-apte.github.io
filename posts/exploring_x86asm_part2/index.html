@@ -7,7 +7,7 @@
 <meta name="robots" content="index, follow">
 <title>Exploring x86 ASM : Runtime code modification and creating mutating programs | Sayujya Apte</title>
 <meta name="keywords" content="">
-<meta name="description" content="Code, once written by the programmer and compiled into an executable, is usually treated as immutable. Yet, at the lowest level of execution, this immutability is more of a suggestion than a rule, enforced by operating systems rather than the hardware itself. In reality, code is just stored in the memory within the text section, and as you can with any other location in memory, you can modify it at runtime, given that you have the right privileges.">
+<meta name="description" content="Modifying instructions inside memory at program runtime to mutate program behaviour">
 <meta name="author" content="">
 <link rel="canonical" href="https://sayujya-apte.github.io/posts/exploring_x86asm_part2/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.min.7da7716a1f2d0725f74c6ae7f8d6adafc43aabe2b366b65bfbf433448e2a2001.css" integrity="sha256-fadxah8tByX3TGrn&#43;Natr8Q6q&#43;KzZrZb&#43;/QzRI4qIAE=" rel="preload stylesheet" as="style">
@@ -16,9 +16,9 @@
 <link rel="alternate" hreflang="en" href="https://sayujya-apte.github.io/posts/exploring_x86asm_part2/">
 
 <meta name="twitter:title" content="Exploring x86 ASM : Runtime code modification and creating mutating programs | Sayujya Apte" />
-<meta name="twitter:description" content="Code, once written by the programmer and compiled into an executable, is usually treated as immutable. Yet, at the lowest level of execution, this immutability is more of a suggestion than a rule, enforced by operating systems rather than the hardware itself. In reality, code is just stored in the memory within the text section, and as you can with any other location in memory, you can modify it at runtime, given that you have the right privileges." />
+<meta name="twitter:description" content="Modifying instructions inside memory at program runtime to mutate program behaviour" />
 <meta property="og:title" content="Exploring x86 ASM : Runtime code modification and creating mutating programs | Sayujya Apte" />
-<meta property="og:description" content="Code, once written by the programmer and compiled into an executable, is usually treated as immutable. Yet, at the lowest level of execution, this immutability is more of a suggestion than a rule, enforced by operating systems rather than the hardware itself. In reality, code is just stored in the memory within the text section, and as you can with any other location in memory, you can modify it at runtime, given that you have the right privileges." />
+<meta property="og:description" content="Modifying instructions inside memory at program runtime to mutate program behaviour" />
 <meta property="og:type" content="article" />
 <meta property="og:url" content="https://sayujya-apte.github.io/posts/exploring_x86asm_part2/" />
 <meta property="article:section" content="posts" />
@@ -52,7 +52,7 @@
   "@type": "BlogPosting",
   "headline": "Exploring x86 ASM : Runtime code modification and creating mutating programs | Sayujya Apte",
   "name": "Exploring x86 ASM : Runtime code modification and creating mutating programs",
-  "description": "Code, once written by the programmer and compiled into an executable, is usually treated as immutable. Yet, at the lowest level of execution, this immutability is more of a suggestion than a rule, enforced by operating systems rather than the hardware itself. In reality, code is just stored in the memory within the text section, and as you can with any other location in memory, you can modify it at runtime, given that you have the right privileges.\n",
+  "description": "Modifying instructions inside memory at program runtime to mutate program behaviour",
   "keywords": [
     
   ],
@@ -191,6 +191,7 @@ function toggleThemeListener() {
 <article class="post-single">
   <header class="post-header">
     <h1 class="post-title">Exploring x86 ASM : Runtime code modification and creating mutating programs</h1>
+    <div class="post-description">Modifying instructions inside memory at program runtime to mutate program behaviour</div>
     <div class="post-meta"><span class="meta-item">
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar" style="user-select: text;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" style="user-select: text;"></rect><line x1="16" y1="2" x2="16" y2="6" style="user-select: text;"></line><line x1="8" y1="2" x2="8" y2="6" style="user-select: text;"></line><line x1="3" y1="10" x2="21" y2="10" style="user-select: text;"></line></svg>
   <span>January 19, 2026</span></span>
