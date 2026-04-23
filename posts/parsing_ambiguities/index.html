@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages | Sayujya Apte</title>
+<meta name="keywords" content="">
+<meta name="description" content="How ambiguous grammar in programming languages confuses compilers, spawns undefined behaviour, and forces language designers to make uncomfortable choices">
+<meta name="author" content="">
+<link rel="canonical" href="https://sayujya-apte.github.io/posts/parsing_ambiguities/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.min.7da7716a1f2d0725f74c6ae7f8d6adafc43aabe2b366b65bfbf433448e2a2001.css" integrity="sha256-fadxah8tByX3TGrn&#43;Natr8Q6q&#43;KzZrZb&#43;/QzRI4qIAE=" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://sayujya-apte.github.io/favicon.ico">
+<link rel="apple-touch-icon" href="https://sayujya-apte.github.io/apple-touch-icon.png">
+<link rel="alternate" hreflang="en" href="https://sayujya-apte.github.io/posts/parsing_ambiguities/">
+
+<meta name="twitter:title" content="Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages | Sayujya Apte" />
+<meta name="twitter:description" content="How ambiguous grammar in programming languages confuses compilers, spawns undefined behaviour, and forces language designers to make uncomfortable choices" />
+<meta property="og:title" content="Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages | Sayujya Apte" />
+<meta property="og:description" content="How ambiguous grammar in programming languages confuses compilers, spawns undefined behaviour, and forces language designers to make uncomfortable choices" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://sayujya-apte.github.io/posts/parsing_ambiguities/" />
+<meta property="article:section" content="posts" />
+  <meta property="article:published_time" content="2026-04-23T09:37:48&#43;00:00" />
+  <meta property="article:modified_time" content="2026-04-23T09:37:48&#43;00:00" />
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "https://sayujya-apte.github.io/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages",
+      "item": "https://sayujya-apte.github.io/posts/parsing_ambiguities/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages | Sayujya Apte",
+  "name": "Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages",
+  "description": "How ambiguous grammar in programming languages confuses compilers, spawns undefined behaviour, and forces language designers to make uncomfortable choices",
+  "keywords": [
+    
+  ],
+  "wordCount" : "1472",
+  "inLanguage": "en",
+  "datePublished": "2026-04-23T09:37:48Z",
+  "dateModified": "2026-04-23T09:37:48Z",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://sayujya-apte.github.io/posts/parsing_ambiguities/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Sayujya Apte",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://sayujya-apte.github.io/favicon.ico"
+    }
+  }
+}
+</script>
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+</noscript>
+
+</head>
+
+<body class=" dark type-posts kind-page layout-" id="top"><script data-no-instant>
+function switchTheme(theme) {
+  switch (theme) {
+    case 'light':
+      document.body.classList.remove('dark');
+      break;
+    case 'dark':
+      document.body.classList.add('dark');
+      break;
+    
+    default:
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+      }
+  }
+}
+
+function isDarkTheme() {
+  return document.body.className.includes("dark");
+}
+
+function getPrefTheme() {
+  return localStorage.getItem("pref-theme");
+}
+
+function setPrefTheme(theme) {
+  switchTheme(theme)
+  localStorage.setItem("pref-theme", theme);
+}
+
+const toggleThemeCallbacks = {}
+toggleThemeCallbacks['main'] = (isDark) => {
+  
+  if (isDark) {
+    setPrefTheme('light');
+  } else {
+    setPrefTheme('dark');
+  }
+}
+
+
+
+
+window.addEventListener('toggle-theme', function() {
+  
+  const isDark = isDarkTheme()
+  for (const key in toggleThemeCallbacks) {
+    toggleThemeCallbacks[key](isDark)
+  }
+});
+
+
+function toggleThemeListener() {
+  
+  window.dispatchEvent(new CustomEvent('toggle-theme'));
+}
+
+</script>
+<script>
+  
+  (function() {
+    const defaultTheme = 'dark';
+    const prefTheme = getPrefTheme();
+    const theme = prefTheme ? prefTheme : defaultTheme;
+
+    switchTheme(theme);
+  })();
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="https://sayujya-apte.github.io/" accesskey="h" title="Sayujya Apte (Alt + H)">Sayujya Apte</a>
+            <span class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </span>
+        </div>
+        <ul id="menu">
+        </ul>
+    </nav>
+</header>
+<main class="main post">
+
+<article class="post-single">
+  <header class="post-header">
+    <h1 class="post-title">Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages</h1>
+    <div class="post-description">How ambiguous grammar in programming languages confuses compilers, spawns undefined behaviour, and forces language designers to make uncomfortable choices</div>
+    <div class="post-meta"><span class="meta-item">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar" style="user-select: text;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" style="user-select: text;"></rect><line x1="16" y1="2" x2="16" y2="6" style="user-select: text;"></line><line x1="8" y1="2" x2="8" y2="6" style="user-select: text;"></line><line x1="3" y1="10" x2="21" y2="10" style="user-select: text;"></line></svg>
+  <span>April 23, 2026</span></span>
+
+      
+      
+    </div>
+  </header> 
+  <div class="post-content"><p>The conception that code means what it looks like it means is one of the most misleading myths in programming. We assure ourselves that syntax is concrete and unambiguous, and with enough experience, we can simply glance at a line and see its behaviour. But that intuition is fragile at best, and in some cases, flat-out incorrect.</p>
+<p>Consider the following snippet:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (a)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (b)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something</span>();
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">do_something_else</span>();
+</span></span></code></pre></div><p>Even if you have seen this exact snippet before, your brain forms an interpretation of the code instantly. The indentation suggests a structure, which naturally leads us to interpret the code in a certain manner. However, it need not be that the compiler interpret it in the same way.</p>
+<p>Let us take a look at the following C++ statement:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>std<span style="color:#f92672">::</span>vector<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">int</span><span style="color:#f92672">&gt;</span> v(std<span style="color:#f92672">::</span>vector<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">int</span><span style="color:#f92672">&gt;</span>());
+</span></span></code></pre></div><p>At first glance, it appears like a vector <code>v</code> is being constructed an initialized with another temporary vector. However, that is not how the compiler sees it. Instead, it interprets this statement as a function declaration rather than an object creation.</p>
+<p>In both cases, it is easy to misread and misinterpret what is actually going on. And that&rsquo;s the key problem: code, while structured, is not primarily intended to be a visual medium. It is a stream of tokens fed into a parser that follows the defined grammatical structure of the code, without any regards to the context of the statement. This leads to a gap between two interpretations of the same code - what we see and what the compiler derives.</p>
+<h2 id="the-dangling-else-problem">The Dangling-else Problem<a hidden class="anchor" aria-hidden="true" href="#the-dangling-else-problem">¶</a></h2>
+<p>Let us backtrack to the first code snippet:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (a)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (b)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something</span>();
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">do_something_else</span>();
+</span></span></code></pre></div><p>Now the core question: which <code>if</code> statement does the <code>else</code> belong to? Reading it visually, we might associate the <code>else</code> statement with the first <code>if</code> statement - and this association is reinforced by the indentation.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (a) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (b)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something</span>();
+</span></span><span style="display:flex;"><span>} 
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">do_something_else</span>()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>However, there is another possibility. The <code>else</code> statement could be associated with the second <code>if</code> statement. This is how the C compiler will interpret the same code, and lead to an entirely different behaviour.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (a) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (b)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something_else</span>();
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="why-is-the-grammar-ambiguous">Why is the grammar ambiguous<a hidden class="anchor" aria-hidden="true" href="#why-is-the-grammar-ambiguous">¶</a></h3>
+<p>To understand why this is happening, we need to take a look at how programming languages are defined. Most programming languages use what is called a Context-Free Grammar (CFG). It is essentially a set of rules that define the semantics of a statement in code, and how it will be interpreted. A simplified grammar for the above if-else statement could be something like follows:</p>
+<pre tabindex="0"><code>statement:
+    if (condition_1) statement_1
+    if (condition_2) statement_2
+    else statement_3
+</code></pre><p>This seems reasonable at first glance. However, this grammar allows multiple valid ways to derive (i.e. parse) the same set of tokens and extract wildly different meanings. Formally, this means that the grammar is ambiguous: there exists at least one statement that has more than one valid derivations, or equivalently, more than one parse tree.</p>
+<h3 id="the-solution">The Solution<a hidden class="anchor" aria-hidden="true" href="#the-solution">¶</a></h3>
+<p>Now, most mainstream languages (i.e. C, C++, Java) resolve this ambiguity the same way - an <code>else</code> is matched with the nearest preceding unmatched <code>if</code>. This rule isn&rsquo;t something that can be expressed within the grammar, instead it is an additional rule layered on top of the grammar for the purpose of disambiguation. Not all languages choose to address this ambiguity in the same way - earlier languages like Algol 60 added special if-statements to wrestle with this ambiguity, while some Pascal variants experimented with different resolutions.</p>
+<p>Modern languages choose a more radical approach - eliminate the ambiguity entirely. Languages like Rust mandate explicit structure through mandatory braces. With the extra syntax, the parser no longer has to guess, and neither does the programmer.</p>
+<h3 id="the-impact">The Impact<a hidden class="anchor" aria-hidden="true" href="#the-impact">¶</a></h3>
+<p>It is easy to dismiss this issue as a theoretical curiosity. However, it has led to significant bugs in the real world. At its core, the dangling-else is a misleading indentation ambiguity. A similar kind of misleading interpretation ambiguity caused the infamous &ldquo;goto fail&rdquo; bug in Apple&rsquo;s SSL implementation. While the root cause was marginally different, the underlying message remains the same - when code&rsquo;s visual appearance diverges from its grammatical structure, it gives way to bugs and vulnerabilities.</p>
+<h2 id="the-most-vexing-parse">The Most Vexing Parse<a hidden class="anchor" aria-hidden="true" href="#the-most-vexing-parse">¶</a></h2>
+<p>Take a look at the following C++ statement:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>MyObj <span style="color:#a6e22e">obj</span>(MyClass());
+</span></span></code></pre></div><p>This line is syntactically valid, but again, ambiguous. Is the statement</p>
+<ol>
+<li>creating an object of class <code>MyObj</code> and passing a temporary object of class <code>MyClass</code> to the constructor, or</li>
+<li>declaring a function with a return type <code>MyObj</code> and the data type of the parameter as <code>MyClass</code>?</li>
+</ol>
+<p>But which one of these interpretations is actually valid, and which one of them is used by the compiler? This ambiguous behaviour is known as the Most Vexing Parse.</p>
+<h3 id="the-rule-c-follows">The Rule C++ follows<a hidden class="anchor" aria-hidden="true" href="#the-rule-c-follows">¶</a></h3>
+<p>Within C++&rsquo;s parsing rules, which are inherited from its predecessor C, we find the rule governing the interpretation of this statement. The critical rule is: <strong>if something can be parsed as a declaration, it is a declaration</strong>.</p>
+<p>This might sound unintuitive at first, but the reason comes from the design of C. It comes from the assumption that if a compiler fails to understand a statement outright, then it must be a declaration for something that will be defined later on.</p>
+<h3 id="how-the-problem-surfaces">How the problem surfaces<a hidden class="anchor" aria-hidden="true" href="#how-the-problem-surfaces">¶</a></h3>
+<p>For most simple cases, this ambiguity doesn&rsquo;t break the compiler. Instead, it leads to silent misbehaviour. No compile-time errors or warnings, just wrong semantics. The compiler cannot flag it, but the logic is interpreted incorrectly.</p>
+<p>In a real application, one might encounter the following statement:</p>
+<pre tabindex="0"><code class="language-C+++" data-lang="C+++">std::unique_lock&lt;std::mutex&gt; lock(std::unique_lock&lt;std::mutex&gt;());
+</code></pre><p>The programmer intends this to be a construction of <code>lock</code> with an initial lock on the mutex. However, the compiler interprets it as a function declaration, and what the programmer intends to be an object is instead a function that returns a <code>std::unique_lock&lt;std::mutex&gt;</code>.</p>
+<p>This misinterpretation is a bug waiting to happen. It can lead to hard-to-diagnose runtime errors, where methods are called on something which was intended to be an object but in reality isn&rsquo;t one. It is a subtle issue, but one which has been bothering C++ developers for decades.</p>
+<h3 id="the-solutions">The Solution(s)<a hidden class="anchor" aria-hidden="true" href="#the-solutions">¶</a></h3>
+<p>Over the years, C++ has tried to introduce several &ldquo;fixes&rdquo; to resolve this ambiguity. But each solution has had its tradeoffs.</p>
+<p>Before C++11, the solution to this problem was to use an extra set of parentheses as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>MyObj <span style="color:#a6e22e">obj</span>((MyClass()));
+</span></span></code></pre></div><p>The extra parentheses tell the compiler that <code>obj</code> is an object and not a function. But this isn&rsquo;t foolproof either, as it can be misread in other situations, and was a bit unintuitive. It was more of a hack than a real solution.</p>
+<p>C++11 introduced the syntax for uniform initialization via curly braces to make things clearer:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>MyObj obj{MyClass()};
+</span></span></code></pre></div><p>This has made the ambiguity much more clearer. However, it is not without its tradeoffs. The <code>{}</code> syntax relies on <code>std::initializer_list</code>, which introduces a whole new set of problems, such as the behaviour when the class has a constructor that takes an initializer list.</p>
+<h3 id="why-you-cant-just-fix-it">Why you can&rsquo;t just &ldquo;fix it&rdquo;<a hidden class="anchor" aria-hidden="true" href="#why-you-cant-just-fix-it">¶</a></h3>
+<p>The core hurdle that lies to just fixing this ambiguity is backwards compatibility. C++ being a legacy language, it has a huge amount of existing code built upon this rule. Changing such a fundamental rule risks breaking a massive amount of existing code. That&rsquo;s why C++ had to introduce extra parentheses or curly braces rather than change the grammar of the language.</p>
+<p>Another hurdle is that unlike C, C++ is not purely a context-free grammar language. Parsing it requires more than just syntactic parsing. Compilers also need access to semantic information. This exponentially increases the complexity of the language - and the associated tooling like compilers and IDEs.</p>
+<p>In short, even if a &ldquo;fix&rdquo; existed, the language&rsquo;s complexity and legacy constraints make it incredibly hard to fully address without creating problems elsewhere.</p>
+<h2 id="conclusion">Conclusion<a hidden class="anchor" aria-hidden="true" href="#conclusion">¶</a></h2>
+<p>The irony at the heart of language design is that the very features that make languages feel natural and terse are often the same ones that introduce ambiguity. Ambiguity that, while invisible at first, forces compilers to resovle it in a way that leads to subtle but frustrating errors. It is the price that a language designer pays for making the grammar look &ldquo;clean&rdquo; and &ldquo;intuitive&rdquo; - and it&rsquo;s a price that often gets paid in the form of silent misbehaviour and hard-to-find bugs.</p>
+<p>Grammar design shouldn&rsquo;t be about elegance or minimalism. It should take into account the consequence of each design choice. Ambiguities in grammar have a permanent downstream effect. They fundamentally shape how programmers write code, the tools used to compile and debug that code, and how that code behaves at runtime.</p>
+<p>The quirks we encounter in languages today - the dangling-else and the Most Vexing Parse - are the result of design decisions made decades ago. They might not have been mistakes per se, but they were tradeoffs with lasting consequences.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+  </footer>
+    <div class="comments-separator"></div>
+</article>
+    </main>
+    
+<footer class="footer">
+  <span>&copy; 2026 <a href="https://sayujya-apte.github.io/">Sayujya Apte</a></span><span style="display: inline-block; margin-left: 1em;">
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>
+  </span>
+  <span style="display: inline-block; margin-left: 1em;">
+    Powered by
+    <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+    <a href="https://github.com/reorx/hugo-PaperModX/" rel="noopener" target="_blank">PaperModX</a>
+  </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+    <path d="M12 6H0l6-6z" />
+  </svg>
+</a>
+
+<script>
+  (function() {
+     
+    const disableThemeToggle = '' == '1';
+    if (disableThemeToggle) {
+      return;
+    }
+
+    let button = document.getElementById("theme-toggle")
+    
+    button.removeEventListener('click', toggleThemeListener)
+    
+    button.addEventListener('click', toggleThemeListener)
+  })();
+</script>
+
+<script>
+  (function () {
+    let menu = document.getElementById('menu')
+    if (menu) {
+      menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+      menu.onscroll = function () {
+        localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+      }
+    }
+
+    const disableSmoothScroll = '' == '1';
+    const enableInstantClick = '' == '1';
+    
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || disableSmoothScroll || enableInstantClick) {
+      return;
+    }
+    
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener("click", function (e) {
+        e.preventDefault();
+        var id = this.getAttribute("href").substr(1);
+        document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+          behavior: "smooth"
+        });
+        if (id === "top") {
+          history.replaceState(null, null, " ");
+        } else {
+          history.pushState(null, null, `#${id}`);
+        }
+      });
+    });
+  })();
+</script>
+<script>
+  var mybutton = document.getElementById("top-link");
+  window.onscroll = function () {
+    if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+      mybutton.style.visibility = "visible";
+      mybutton.style.opacity = "1";
+    } else {
+      mybutton.style.visibility = "hidden";
+      mybutton.style.opacity = "0";
+    }
+  };
+</script>
+<script>
+  if (window.scrollListeners) {
+    
+    for (const listener of scrollListeners) {
+      window.removeEventListener('scroll', listener)
+    }
+  }
+  window.scrollListeners = []
+</script>
+
+
+
+<script src="/js/medium-zoom.min.js" data-no-instant
+></script>
+
+
+
+
+<script>
+  
+  
+  (function() {
+    const enableTocScroll = '' == '1'
+    if (!enableTocScroll) {
+      return
+    }
+    if (!document.querySelector('.toc')) {
+      console.log('no toc found, ignore toc scroll')
+      return
+    }
+    
+
+    
+    const scrollListeners = window.scrollListeners
+    const headings = document.querySelectorAll('h1[id],h2[id],h3[id],h4[id],h5[id]');
+    const activeClass = 'active';
+
+    
+    let activeHeading = headings[0];
+    getLinkByHeading(activeHeading).classList.add(activeClass);
+
+    const onScroll = () => {
+      const passedHeadings = [];
+      for (const h of headings) {
+        
+        if (getOffsetTop(h) < 5) {
+          passedHeadings.push(h)
+        } else {
+          break;
+        }
+      }
+      if (passedHeadings.length > 0) {
+        newActiveHeading = passedHeadings[passedHeadings.length - 1];
+      } else {
+        newActiveHeading = headings[0];
+      }
+      if (activeHeading != newActiveHeading) {
+        getLinkByHeading(activeHeading).classList.remove(activeClass);
+        activeHeading = newActiveHeading;
+        getLinkByHeading(activeHeading).classList.add(activeClass);
+      }
+    }
+
+    let timer = null;
+    const scrollListener = () => {
+      if (timer !== null) {
+        clearTimeout(timer)
+      }
+      timer = setTimeout(onScroll, 50)
+    }
+    window.addEventListener('scroll', scrollListener, false);
+    scrollListeners.push(scrollListener)
+
+    function getLinkByHeading(heading) {
+      const id = encodeURI(heading.getAttribute('id')).toLowerCase();
+      return document.querySelector(`.toc ul li a[href="#${id}"]`);
+    }
+
+    function getOffsetTop(heading) {
+      if (!heading.getClientRects().length) {
+        return 0;
+      }
+      let rect = heading.getBoundingClientRect();
+      return rect.top
+    }
+  })();
+  </script>
+
+</body>
+
+</html>

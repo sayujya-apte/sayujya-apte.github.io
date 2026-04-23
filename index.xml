@@ -6,7 +6,97 @@
     <description>Recent content on Sayujya Apte</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 19 Jan 2026 21:24:32 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 23 Apr 2026 09:37:48 +0000</lastBuildDate><atom:link href="https://sayujya-apte.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages</title>
+      <link>https://sayujya-apte.github.io/posts/parsing_ambiguities/</link>
+      <pubDate>Thu, 23 Apr 2026 09:37:48 +0000</pubDate>
+      
+      <guid>https://sayujya-apte.github.io/posts/parsing_ambiguities/</guid>
+      <description>How ambiguous grammar in programming languages confuses compilers, spawns undefined behaviour, and forces language designers to make uncomfortable choices</description>
+      <content:encoded><![CDATA[<p>The conception that code means what it looks like it means is one of the most misleading myths in programming. We assure ourselves that syntax is concrete and unambiguous, and with enough experience, we can simply glance at a line and see its behaviour. But that intuition is fragile at best, and in some cases, flat-out incorrect.</p>
+<p>Consider the following snippet:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (a)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (b)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something</span>();
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">do_something_else</span>();
+</span></span></code></pre></div><p>Even if you have seen this exact snippet before, your brain forms an interpretation of the code instantly. The indentation suggests a structure, which naturally leads us to interpret the code in a certain manner. However, it need not be that the compiler interpret it in the same way.</p>
+<p>Let us take a look at the following C++ statement:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>std<span style="color:#f92672">::</span>vector<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">int</span><span style="color:#f92672">&gt;</span> v(std<span style="color:#f92672">::</span>vector<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">int</span><span style="color:#f92672">&gt;</span>());
+</span></span></code></pre></div><p>At first glance, it appears like a vector <code>v</code> is being constructed an initialized with another temporary vector. However, that is not how the compiler sees it. Instead, it interprets this statement as a function declaration rather than an object creation.</p>
+<p>In both cases, it is easy to misread and misinterpret what is actually going on. And that&rsquo;s the key problem: code, while structured, is not primarily intended to be a visual medium. It is a stream of tokens fed into a parser that follows the defined grammatical structure of the code, without any regards to the context of the statement. This leads to a gap between two interpretations of the same code - what we see and what the compiler derives.</p>
+<h2 id="the-dangling-else-problem">The Dangling-else Problem</h2>
+<p>Let us backtrack to the first code snippet:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (a)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (b)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something</span>();
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">do_something_else</span>();
+</span></span></code></pre></div><p>Now the core question: which <code>if</code> statement does the <code>else</code> belong to? Reading it visually, we might associate the <code>else</code> statement with the first <code>if</code> statement - and this association is reinforced by the indentation.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (a) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (b)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something</span>();
+</span></span><span style="display:flex;"><span>} 
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">do_something_else</span>()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>However, there is another possibility. The <code>else</code> statement could be associated with the second <code>if</code> statement. This is how the C compiler will interpret the same code, and lead to an entirely different behaviour.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C" data-lang="C"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (a) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (b)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">do_something_else</span>();
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="why-is-the-grammar-ambiguous">Why is the grammar ambiguous</h3>
+<p>To understand why this is happening, we need to take a look at how programming languages are defined. Most programming languages use what is called a Context-Free Grammar (CFG). It is essentially a set of rules that define the semantics of a statement in code, and how it will be interpreted. A simplified grammar for the above if-else statement could be something like follows:</p>
+<pre tabindex="0"><code>statement:
+    if (condition_1) statement_1
+    if (condition_2) statement_2
+    else statement_3
+</code></pre><p>This seems reasonable at first glance. However, this grammar allows multiple valid ways to derive (i.e. parse) the same set of tokens and extract wildly different meanings. Formally, this means that the grammar is ambiguous: there exists at least one statement that has more than one valid derivations, or equivalently, more than one parse tree.</p>
+<h3 id="the-solution">The Solution</h3>
+<p>Now, most mainstream languages (i.e. C, C++, Java) resolve this ambiguity the same way - an <code>else</code> is matched with the nearest preceding unmatched <code>if</code>. This rule isn&rsquo;t something that can be expressed within the grammar, instead it is an additional rule layered on top of the grammar for the purpose of disambiguation. Not all languages choose to address this ambiguity in the same way - earlier languages like Algol 60 added special if-statements to wrestle with this ambiguity, while some Pascal variants experimented with different resolutions.</p>
+<p>Modern languages choose a more radical approach - eliminate the ambiguity entirely. Languages like Rust mandate explicit structure through mandatory braces. With the extra syntax, the parser no longer has to guess, and neither does the programmer.</p>
+<h3 id="the-impact">The Impact</h3>
+<p>It is easy to dismiss this issue as a theoretical curiosity. However, it has led to significant bugs in the real world. At its core, the dangling-else is a misleading indentation ambiguity. A similar kind of misleading interpretation ambiguity caused the infamous &ldquo;goto fail&rdquo; bug in Apple&rsquo;s SSL implementation. While the root cause was marginally different, the underlying message remains the same - when code&rsquo;s visual appearance diverges from its grammatical structure, it gives way to bugs and vulnerabilities.</p>
+<h2 id="the-most-vexing-parse">The Most Vexing Parse</h2>
+<p>Take a look at the following C++ statement:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>MyObj <span style="color:#a6e22e">obj</span>(MyClass());
+</span></span></code></pre></div><p>This line is syntactically valid, but again, ambiguous. Is the statement</p>
+<ol>
+<li>creating an object of class <code>MyObj</code> and passing a temporary object of class <code>MyClass</code> to the constructor, or</li>
+<li>declaring a function with a return type <code>MyObj</code> and the data type of the parameter as <code>MyClass</code>?</li>
+</ol>
+<p>But which one of these interpretations is actually valid, and which one of them is used by the compiler? This ambiguous behaviour is known as the Most Vexing Parse.</p>
+<h3 id="the-rule-c-follows">The Rule C++ follows</h3>
+<p>Within C++&rsquo;s parsing rules, which are inherited from its predecessor C, we find the rule governing the interpretation of this statement. The critical rule is: <strong>if something can be parsed as a declaration, it is a declaration</strong>.</p>
+<p>This might sound unintuitive at first, but the reason comes from the design of C. It comes from the assumption that if a compiler fails to understand a statement outright, then it must be a declaration for something that will be defined later on.</p>
+<h3 id="how-the-problem-surfaces">How the problem surfaces</h3>
+<p>For most simple cases, this ambiguity doesn&rsquo;t break the compiler. Instead, it leads to silent misbehaviour. No compile-time errors or warnings, just wrong semantics. The compiler cannot flag it, but the logic is interpreted incorrectly.</p>
+<p>In a real application, one might encounter the following statement:</p>
+<pre tabindex="0"><code class="language-C+++" data-lang="C+++">std::unique_lock&lt;std::mutex&gt; lock(std::unique_lock&lt;std::mutex&gt;());
+</code></pre><p>The programmer intends this to be a construction of <code>lock</code> with an initial lock on the mutex. However, the compiler interprets it as a function declaration, and what the programmer intends to be an object is instead a function that returns a <code>std::unique_lock&lt;std::mutex&gt;</code>.</p>
+<p>This misinterpretation is a bug waiting to happen. It can lead to hard-to-diagnose runtime errors, where methods are called on something which was intended to be an object but in reality isn&rsquo;t one. It is a subtle issue, but one which has been bothering C++ developers for decades.</p>
+<h3 id="the-solutions">The Solution(s)</h3>
+<p>Over the years, C++ has tried to introduce several &ldquo;fixes&rdquo; to resolve this ambiguity. But each solution has had its tradeoffs.</p>
+<p>Before C++11, the solution to this problem was to use an extra set of parentheses as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>MyObj <span style="color:#a6e22e">obj</span>((MyClass()));
+</span></span></code></pre></div><p>The extra parentheses tell the compiler that <code>obj</code> is an object and not a function. But this isn&rsquo;t foolproof either, as it can be misread in other situations, and was a bit unintuitive. It was more of a hack than a real solution.</p>
+<p>C++11 introduced the syntax for uniform initialization via curly braces to make things clearer:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-C++" data-lang="C++"><span style="display:flex;"><span>MyObj obj{MyClass()};
+</span></span></code></pre></div><p>This has made the ambiguity much more clearer. However, it is not without its tradeoffs. The <code>{}</code> syntax relies on <code>std::initializer_list</code>, which introduces a whole new set of problems, such as the behaviour when the class has a constructor that takes an initializer list.</p>
+<h3 id="why-you-cant-just-fix-it">Why you can&rsquo;t just &ldquo;fix it&rdquo;</h3>
+<p>The core hurdle that lies to just fixing this ambiguity is backwards compatibility. C++ being a legacy language, it has a huge amount of existing code built upon this rule. Changing such a fundamental rule risks breaking a massive amount of existing code. That&rsquo;s why C++ had to introduce extra parentheses or curly braces rather than change the grammar of the language.</p>
+<p>Another hurdle is that unlike C, C++ is not purely a context-free grammar language. Parsing it requires more than just syntactic parsing. Compilers also need access to semantic information. This exponentially increases the complexity of the language - and the associated tooling like compilers and IDEs.</p>
+<p>In short, even if a &ldquo;fix&rdquo; existed, the language&rsquo;s complexity and legacy constraints make it incredibly hard to fully address without creating problems elsewhere.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>The irony at the heart of language design is that the very features that make languages feel natural and terse are often the same ones that introduce ambiguity. Ambiguity that, while invisible at first, forces compilers to resovle it in a way that leads to subtle but frustrating errors. It is the price that a language designer pays for making the grammar look &ldquo;clean&rdquo; and &ldquo;intuitive&rdquo; - and it&rsquo;s a price that often gets paid in the form of silent misbehaviour and hard-to-find bugs.</p>
+<p>Grammar design shouldn&rsquo;t be about elegance or minimalism. It should take into account the consequence of each design choice. Ambiguities in grammar have a permanent downstream effect. They fundamentally shape how programmers write code, the tools used to compile and debug that code, and how that code behaves at runtime.</p>
+<p>The quirks we encounter in languages today - the dangling-else and the Most Vexing Parse - are the result of design decisions made decades ago. They might not have been mistakes per se, but they were tradeoffs with lasting consequences.</p>
+]]></content:encoded>
+    </item>
+    
     <item>
       <title>Exploring x86 ASM : Runtime code modification and creating mutating programs</title>
       <link>https://sayujya-apte.github.io/posts/exploring_x86asm_part2/</link>
