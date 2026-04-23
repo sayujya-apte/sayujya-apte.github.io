@@ -1,27 +1,38 @@
-document.getElementById('current-year').textContent = new Date().getFullYear();
+ const elements = document.querySelectorAll('.fade-in');
 
-console.log("Hello")
+ const observer = new IntersectionObserver((entries) => {
+     entries.forEach((entry, index) => {
+         if (entry.isIntersecting) {
+             setTimeout(() => {
+                 entry.target.classList.add('visible');
+             }, index * 100); // 100ms stagger
 
-const elements = document.querySelectorAll('.fade-in');
+             observer.unobserve(entry.target);
+         }
+     });
+ }, {
+     threshold: 0.15
+ });
 
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-      observer.unobserve(entry.target);
-    }
-  });
-}, { threshold: 0.1 });
+ elements.forEach(el => observer.observe(el));
 
-// observe everything
-elements.forEach(el => observer.observe(el));
+ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+     anchor.addEventListener('click', function(e) {
+         const targetId = this.getAttribute('href');
 
-// 🔥 force visibility for elements already in view
-window.addEventListener('load', () => {
-  elements.forEach(el => {
-    const rect = el.getBoundingClientRect();
-    if (rect.top < window.innerHeight) {
-      el.classList.add('visible');
-    }
-  });
-});
+         if (targetId === "#") return;
+
+         const target = document.querySelector(targetId);
+
+         if (target) {
+             e.preventDefault();
+
+             const top = target.getBoundingClientRect().top + window.scrollY;
+
+             window.scrollTo({
+                 top: top,
+                 behavior: 'smooth'
+             });
+         }
+     });
+ });
