@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sayujya Apte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.16/400-500.min.css">
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="/assets/images/logo.png">
+    <meta http-equiv="refresh" content="0; url=exploring_x86asm_part1.html">
+</head>
+

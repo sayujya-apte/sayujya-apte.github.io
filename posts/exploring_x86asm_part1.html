@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sayujya Apte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.16/400-500.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism-tomorrow.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-c.min.js"></script>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="/assets/images/logo.png">
+</head>
+
+<body class="grid-pattern">
+    
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="../index.html#home" class="logo"><img src="../assets/images/logo.png" alt="Logo"></a>
+                <div class="nav-links">
+                    <a href="../index.html#about" class="nav-item nav-underline">[01] ABOUT</a>
+                    <a href="../index.html#projects" class="nav-item nav-underline">[02] PROJECTS</a>
+                    <a href="../archive.html" class="nav-item nav-underline">[03] BLOG</a>
+                    <a href="../index.html#skills" class="nav-item nav-underline">[04] SKILLS</a> 
+                    <a href="../index.html#contact" class="contact-btn">CONTACT</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="post-container container">
+
+        <a href="../archive.html" class="post-back">
+            &larr; BACK_TO_BLOG
+        </a>
+
+        <!-- Header -->
+        <header class="post-header">
+            <h1 class="post-title">Exploring x86 ASM : Building my own malloc and free</h1>
+
+            <div class="post-meta">
+                <span class="blog-date">November 17, 2025</span>
+
+                <div class="post-tags">
+                    <span class="post-tag">x86 Assembly</span>
+                    <span class="post-tag">Low-level</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Article -->
+        <article class="post-content">
+            <p>
+                Since the past few months, I seem to have caught a bug named low-level programming. It started with C++, then I moved on to C. But before long, not even C could scratch the itch of getting ever closer to bare metal. And that is how I ended up here - writing code in pure x86 assembly.
+            </p>
+      
+            <p>
+                Memory management is a key element of low level programming - yet most developers are, for some reason, irrationally afraid of it. I, on the other hand, am incredibly fascinated by the idea of having the power to manually allocate and deallocate memory at my will.
+            </p>
+      
+            <p>
+                Most developers take <code>malloc</code> and <code>free</code> for granted - they're just there, doing their job in the background. But what actually happens when you allocate memory? This question is what drove me to strip away all the abstractions and build a minimal allocator from scratch.
+            </p>
+
+            <h2>The Theory</h2>
+            <p>
+                At its core, this allocator relies on two internal Linux system calls:
+            </p>
+
+            <h3>mmap2 - Memory Mapping</h3>
+            <p>
+                <code>mmap2</code> is the syscall which is used to request memory pages from the kernel. Essentially, you are asking the OS to give your process a specified region of virtual memory. Here are the parameters it takes in:
+            </p>
+            <ul>
+                <li><strong>Address:</strong> Where you want the memory (pass 0 to leave it to the kernel)</li>
+                <li><strong>Length:</strong> What is the size of memory required</li>
+                <li><strong>Protection:</strong> What operations is the program allowed to do on this memory (e.g. read, write, etc)</li>
+                <li><strong>Mapping:</strong> How visible is the memory i.e. private to this process, anonymous, etc</li>
+                <li><strong>File Descriptor:</strong> Which file to map (set to -1 for anonymous memory)</li>
+                <li><strong>Page Offset:</strong> Offset in the file (must be 0 for anonymous memory)</li>
+            </ul>
+            
+            <p>
+                For our implementation, we use <code>PROT_READ | PROT_WRITE</code> with <code>MAP_PRIVATE | MAP_ANONYMOUS</code>, which gives us private read-write memory that isn't backed by any file - exactly what we need for <code>malloc</code>.
+            </p>
+
+            <h3>munmap - Memory Unmapping</h3>
+            <p>
+                <code>munmap</code> is the inverse operation of <code>mmap2</code>. It tells the OS kernel to deallocate a chunk of memory once we are done using it.
+            </p>
+            
+            <ul>
+                <li><strong>Address:</strong> The starting address of the memory region</li>
+                <li><strong>Length:</strong> The size of the memory region</li>
+            </ul>
+            
+            <p>
+                The kernel then marks those pages as "freed", which means that those regions of memory can be reallocated to other programs.
+            </p>
+
+            <h2>The Interface Layer</h2>
+            <p>
+                The big idea behind this project is simple - create wrapper functions that interface with these system calls. Instead of the programmer having to fiddle with <code>mmap2</code> flags and protection, he will simply call <code>malloc(size)</code> and <code>free(ptr)</code>.
+            </p>
+      
+            <p>
+                Another key addition in this implementation is the header. The header is 8 bytes of memory prefixing the allocated memory block - the first four bytes contains the metadata i.e. the size of the memory block, and the next four bytes contains a magic number that is used for validation. This is useful because the <code>munmap</code> syscall requires the length of the memory to be freed, and instead of keeping track of this as a separate variable, we can prefix this in the header itself.
+            </p>
+
+            <h2>The Implementation</h2>
+            <p>
+                To start off, we declare some static variables as follows:
+            </p>
+
+            <pre><code class="language-asm">section .data
+    MAGIC          equ 0xDEADC0DE
+    HEADER_SIZE    equ 8
+    
+    SYSCALL_mmap2  equ 192
+    SYSCALL_munmap equ 91
+    
+    PROT_READ      equ 1
+    PROT_WRITE     equ 2
+    PROT_RW        equ (PROT_READ | PROT_WRITE)
+    
+    MAP_PRIVATE    equ 0x02
+    MAP_ANONYMOUS  equ 0x20
+    MAP_FLAGS      equ (MAP_PRIVATE | MAP_ANONYMOUS)</code></pre>
+
+            <h3>The allocator - <code>malloc</code></h3>
+            <p>
+                Our malloc function takes in one parameter over the stack - which is the size of memory to be allocated. As an output, it returns the pointer to the beginning of the memory block in the <code>eax</code> register.
+            </p>
+      <pre><code class="language-asm">malloc:
+    push ebp                    ; Prologue
+    mov ebp, esp
+
+    mov eax, [ebp+8]            ; Load eax with the input param
+    test eax, eax               ; Check if requested memory size is 0
+    jz .malloc_zero
+
+    add eax, HEADER_SIZE        ; Allocate space for the header
+    mov ecx, eax                ; ecx contains length of memory (for mmap2)
+
+    xor ebx, ebx                ; ebx contains address of memory (for mmap2)
+    mov edx, PROT_RW            ; edx contains protection flags (for mmap2)
+    mov esi, MAP_FLAGS          ; esi contains mapping flags (for mmap2)
+    mov edi, -1                 ; edi contains file descriptor (for mmap2)
+
+    push ebp
+    xor ebp, ebp                ; ebp contains page offset (for mmap2)
+
+    mov eax, SYSCALL_mmap2      ; mmap2 syscall
+    int 0x80
+
+    pop ebp
+
+    cmp eax, 0xfffff000         ; Check if returned pointer is valid
+    jae .malloc_fail
+
+    mov [eax], ecx              ; Store the size of memory in header
+    mov dword [eax + 4], MAGIC  ; Store the magic number in header
+
+    add eax, HEADER_SIZE        ; Move the pointer to the start of usable memory
+    mov esp, ebp                ; Epilogue
+    pop ebp
+    ret
+
+.malloc_zero:
+    xor eax, eax                ; Return a NULL pointer if zero bytes requested
+    mov esp, ebp                ; Epilogue
+    pop ebp
+    ret
+
+.malloc_fail:
+    xor eax, eax                ; Return a NULL pointer if mmap2 failed
+    mov esp, ebp                ; Epilogue
+    pop ebp
+    ret</code></pre>
+      
+            <p>
+                When the programmer calls the <code>malloc</code> function, here's what happens:
+            </p>
+            <ul>
+                <li><strong>Size validation:</strong> If zero bytes of memory is requested, the function returns NULL immediately.</li>
+                <li><strong>Header allocation:</strong> It allocates an extra 8 bytes of memory to hold the metadata.</li>
+                <li><strong>System call:</strong> It calls <code>mmap2</code> to request memory from the kernel with read/write permissions.</li>
+                <li><strong>Metadata storage:</strong> It stores the size of the allocation and the magic number 0xDEADC0DE in the header.</li>
+                <li><strong>Pointer adjustment:</strong> It returns a pointer which points to the beginning of the useable memory block.</li>
+            </ul>
+
+            <h3>The deallocator - <code>free</code></h3>
+            <p>
+                Our free function also takes in one parameter over the stack - which is the pointer to the beginning of the memory block to be freed. It deduces the size of the memory block from the header we created earlier.
+            </p>
+
+      <pre><code class="language-asm">free:
+    push ebp                    ; Prologue
+    mov ebp, esp
+
+    mov eax, [ebp+8]            ; Load eax with the input param
+    test eax, eax               ; Check if input is NULL pointer
+    jz .free_done
+
+    sub eax, HEADER_SIZE        ; Move the pointer back to read the header
+    mov ebx, eax                ; ebx now points to the size in header
+
+    mov ecx, [ebx+4]            ; ecx now points to the magic number in header
+    cmp ecx, MAGIC              ; Validate if magic number is valid
+    jne .bad_magic
+
+    mov edx, [ebx]              ; edx contains the size of memory (for munmap)
+    mov eax, SYSCALL_munmap     ; munmap syscall
+    mov ecx, edx
+
+    int 0x80
+
+    jmp .free_done
+
+.bad_magic:
+    nop                         ; Error handling logic if memory is corrupted
+
+.free_done:
+    mov esp, ebp                ; Epilogue
+    pop ebp
+    ret</code></pre>
+
+            <p>
+                When the programmer calls the <code>free</code> function, here's what happens:
+            </p>
+            <ul>
+                <li><strong>NULL check:</strong> If the pointer passed is a NULL pointer, the function does nothing and exits.</li>
+                <li><strong>Header retrieval:</strong> It goes back 8 bytes in memory from the pointer to deduce the header.</li>
+                <li><strong>Validation:</strong> It checks for the magic number to detect corruption.</li>
+                <li><strong>Size retrieval:</strong> It retrieves the size of the block to be freed from the metadata.</li>
+                <li><strong>System call:</strong> It calls <code>munmap</code> to return the memory back to the operating system.</li>
+            </ul>
+
+            <h2>Example Usage</h2>
+    <pre><code class="language-asm">_start:
+    push dword 4096     ; Pass 4096 to malloc
+    call malloc
+
+    mov ebx, eax        ; Move output pointer to ebx
+    test ebx, ebx       ; Check if ebx is NULL pointer
+    jz .exit
+
+    push ebx            ; Pass ebx to free
+    call free
+
+.exit:
+    mov eax, 1
+    mov ebx, 0
+    int 0x80</code></pre>
+
+            <p>
+                Compiling this program with NASM and linking it with ld, we find out that this program compiles without any errors, and more importantly, no SEGFAULTs. If we run <code>strace</code> on this program, we can see the syscalls made by this program:
+            </p>
+      <pre><code>mmap2(NULL, 4104, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xf7f56000
+munmap(0xf7f56000, 4104)                = 0
+exit(0)                                 = ?</code></pre>
+    
+            <p>
+                We can see that the memory allocated is 4096+8 bytes, and the memory freed is corresponding to the memory allocated. Hence, we can conclude that we successfully implemented <code>malloc</code> and <code>free</code>.
+            </p>
+
+            <h2>Conclusion</h2>
+            <p>
+                This project was a fantastic deep-dive into low level memory management. While something like this is completely pointless to be used in production, building it gave me a deeper appreciation for the existing and more sophisticated allocators.
+            </p>
+      
+            <p>
+                The full source code of this program is available <a href="https://gist.github.com/sayujya-apte/bb9b387283e93012b731c0e621f8f6e8">here</a>.
+            </p>
+
+        </article>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© Sayujya Apte</p>
+    </footer>
+
+    <script src="assets/js/script.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>On Thread Synchronization : Part 1 - A deep dive into mutexes | Sayujya Apte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.16/400-500.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism-tomorrow.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-c.min.js"></script>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="/assets/images/logo.png">
+</head>
+
+<body class="grid-pattern">
+
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="../index.html" class="logo"><img src="../assets/images/logo.png"></a>
+                <div class="nav-links">
+                    <a href="../index.html#about" class="nav-item nav-underline">[01] ABOUT</a>
+                    <a href="../index.html#projects" class="nav-item nav-underline">[02] PROJECTS</a>
+                    <a href="../archive.html" class="nav-item nav-underline">[03] BLOG</a>
+                    <a href="../index.html#skills" class="nav-item nav-underline">[04] SKILLS</a> 
+                    <a href="../index.html#contact" class="contact-btn">CONTACT</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="post-container container">
+
+        <a href="../archive.html" class="post-back">
+            &larr; BACK_TO_BLOG
+        </a>
+
+        <header class="post-header">
+            <h1 class="post-title">On Thread Synchronization : Part 2 - An overview of semaphores</h1>
+
+            <div class="post-meta">
+                <span class="blog-date">December 11, 2025</span>
+
+                <div class="post-tags">
+                    <span class="post-tag">Linux</span>
+                    <span class="post-tag">Semaphore</span>
+                </div>
+            </div>
+        </header>
+
+        <article class="post-content">
+
+            <p>
+                In the previous post of this series, we explored what mutexes are and how they solve the problem of race conditions at a fundamental level by ensuring mutual exclusion. While mutexes are incredibly powerful and have several uses, they possess the limitation of being inherently binary - a resource is either locked or it isn't. But what would happen when you require multiple threads to access a single resource? In the case of mutexes, all of those threads compete for the same lock, which can introduce performance bottlenecks.
+            </p>
+
+            <p>
+                In this case, we have to resort to a more advanced synchronization primitive called a semaphore.
+            </p>
+
+            <h2>The Problem - Producer and Consumer</h2>
+            <p>
+                Consider the following scenario - you have one or more "producer" threads inserting some data into a buffer, and one or more "consumer" threads removing some data from that same buffer. You need to co-ordinate all the threads such that:
+            </p>
+
+            <ul>
+                <li>The producer threads do not add data to the buffer when it is full</li>
+                <li>The consumer threads do not attempt to remove data from the buffer when it is empty</li>
+                <li>The buffer itself is not corrupted by simultaneous access</li>
+            </ul>
+
+            <p>
+                This is a classic scenario called the Producer-Consumer problem. It can be solved using just mutexes in a naive manner, as follows:
+            </p>
+
+<pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;pthread.h&gt;
+#include &lt;unistd.h&gt;
+
+#define BUFFER_SIZE 5
+
+int buffer[BUFFER_SIZE];
+int count = 0;
+pthread_mutex_t mutex;
+
+void* producer(void* arg)
+{
+    int item;
+    for (int i = 0; i &lt; 10; i++)
+    {
+        item = rand() % 100;
+
+        pthread_mutex_lock(&amp;mutex);
+        
+        // Busy waiting for buffer to not be full
+        while (count == BUFFER_SIZE)
+        {
+            pthread_mutex_unlock(&amp;mutex);
+            usleep(1000);
+            pthread_mutex_lock(&amp;mutex);
+        }
+
+        buffer[count] = item;
+        printf("Produced %d at slot %d\n", item, i);
+        count++;
+
+        pthread_mutex_unlock(&amp;mutex);
+        usleep(100000);
+    }
+    return NULL;
+
+} 
+
+void* consumer(void* arg)
+{
+    for (int i = 0; i < 10; i++)
+    {
+        pthread_mutex_lock(&mutex);
+        
+        // Busy waiting for buffer to not be empty
+        while (count == 0)
+        {
+            pthread_mutex_unlock(&mutex);
+            usleep(1000);
+            pthread_mutex_lock(&mutex);
+        }
+
+        int item = buffer[count - 1];
+        printf("Consumed %d from slot %d\n", item, i);
+        count--;
+
+        pthread_mutex_unlock(&mutex);
+        usleep(150000);
+    }
+    return NULL;
+}
+
+int main(int argc, char* argv[])
+{
+    pthread_t prod1, prod2, prod3; // Producer threads 
+    pthread_t cons1, cons2, cons3; // Consumer threads
+
+    pthread_mutex_init(&mutex, NULL);
+
+    pthread_create(&prod1, NULL, &producer, NULL);
+    pthread_create(&prod2, NULL, &producer, NULL);
+    pthread_create(&prod3, NULL, &producer, NULL);
+
+    pthread_create(&cons1, NULL, &consumer, NULL);
+    pthread_create(&cons2, NULL, &consumer, NULL);
+    pthread_create(&cons3, NULL, &consumer, NULL);
+
+    pthread_join(prod1, NULL);
+    pthread_join(prod2, NULL);
+    pthread_join(prod3, NULL);
+
+    pthread_join(cons1, NULL);
+    pthread_join(cons2, NULL);
+    pthread_join(cons3, NULL);
+
+    pthread_mutex_destroy(&mutex);
+
+    return 0;
+}
+</code></pre>
+
+            <p>
+                In this example, we have three producer threads and three consumer threads. The producer threads insert a random value into the buffer, which is an array with 5 elements. Meanwhile, the consumer threads read the values in the buffer on a first in-first out basis and prints them to the console. A mutex lock ensures that only one thread can access the buffer at a single time.
+            </p>
+
+            <p>
+                The problem with using mutexes in this scenario is that the mutex doesn’t tell me exactly when the buffer is empty or full. When I encounter a situation when I cannot operate on the buffer, like when it is full for the producer or empty for the consumer,the most optimum path forward is to sleep for an arbitrary amount of time and recheck if my condition has been satisfied. Essentially, a mutex cannot say “block this thread until there is space in the buffer” or “wake this thread when an item becomes available”. This leads to needless busy-waiting scenarios which in turn introduce bottlenecks.
+            </p>
+
+            <h2>The Solution - Semaphore</h2>
+            <p>
+                A semaphore is a synchronization primitive that maintains a numerical value and provides two atomic operations: wait (also known as P) and signal (also known as V or post). They were developed by legendary mathematician Edsgar Djikstra. Unlike a mutex, a semaphore is non-binary and can actually “count” in a sense.
+            </p>
+
+            <p>
+                At its very core, a semaphore represents a count of available resources, in the sense that the integer value represents how many resources are available. When a thread wants to use a resource, it performs a wait operation. When the thread is finished with that resource, it performs a signal operation.
+            </p>
+
+            <p>
+                The two operations of a semaphore work as follows:
+            </p>
+            <p>
+                <strong>wait (P)</strong>
+            </p>
+            <ul>
+                <li>If the semaphore value is greater than 0, decrement it atomically</li>
+                <li>    If the semaphore value is 0, block the thread until it becomes greater than 0</li>
+            </ul>
+
+            <p>
+                <strong>signal (V)</strong>
+            </p>
+            <ul>
+                <li>Increment the semaphore value atomically</li>
+                <li>If any of the threads are blocked waiting, wake one of them up</li>
+            </ul>
+
+            <h3>Types of semaphores</h3>
+            <ul>
+                <li><strong>Binary semaphore</strong>: Binary semaphores have either a value of 0 or 1, hence they function essentially like a mutex lock. However, a key difference between a mutex lock and a binary semaphore is that any thread can signal a binary semaphore, unlike a mutex lock, which can only be unlocked by the thread that acquired it.</li>
+                <li><strong>Counting semaphore</strong>: Unlike binary semaphores, counting semaphores can have any non-negative integer value. Hence, they can be used to represent multiple instances of a resource.</li>
+            </ul>
+
+            <p>
+                Revisting the producer-consumer problem, this time we solve it using two counting semaphores and a mutex lock:
+            </p>
+
+<pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;pthread.h&gt;
+#include &lt;semaphore.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+
+#define BUFFER_SIZE 5
+
+int buffer[BUFFER_SIZE];
+int in = 0;
+int out = 0;
+
+sem_t empty_slots;      // Semaphore to count empty slots
+sem_t full_slots;       // Semaphore to count full slots
+pthread_mutex_t mutex;
+
+void* producer(void* arg)
+{
+    int item;
+    for (int i = 0; i &lt; 10; i++)
+    {
+        item = rand() % 100;
+
+        sem_wait(&amp;empty_slots); // Producer "waits" on empty_slots
+        pthread_mutex_lock(&amp;mutex);
+
+        buffer[in] = item;
+        printf("Produced: %d at position %d\n", item, in);
+        in = (in + 1) % BUFFER_SIZE;
+
+        pthread_mutex_unlock(&amp;mutex);
+        sem_post(&amp;full_slots); // producer "signals" full_slots
+
+        usleep(100000);
+    }
+    return NULL;
+}
+
+void* consumer(void* arg)
+{
+    int item;
+    for (int i = 0; i < 10; i++)
+    {
+        sem_wait(&full_slots); // Consumer "waits" on full_slots
+        pthread_mutex_lock(&mutex);
+
+        item = buffer[out];
+        printf("Consumed: %d from position %d\n", item, out);
+        out = (out + 1) % BUFFER_SIZE;
+
+        pthread_mutex_unlock(&mutex);
+        sem_post(&empty_slots); // Consumer "signals" empty_slots
+
+        usleep(150000);
+    }
+    return NULL;
+}
+
+int main(int argc, char* argv[])
+{
+    pthread_t prod1, prod2, prod3;
+    pthread_t cons1, cons2, cons3;
+
+    sem_init(&empty_slots, 0, BUFFER_SIZE);
+    sem_init(&full_slots, 0, 0);
+
+    pthread_mutex_init(&mutex, NULL);
+
+    pthread_create(&prod1, NULL, &producer, NULL);
+    pthread_create(&prod2, NULL, &producer, NULL);
+    pthread_create(&prod3, NULL, &producer, NULL);
+
+    pthread_create(&cons1, NULL, &consumer, NULL);
+    pthread_create(&cons2, NULL, &consumer, NULL);
+    pthread_create(&cons3, NULL, &consumer, NULL);
+
+    pthread_join(prod1, NULL);
+    pthread_join(prod2, NULL);
+    pthread_join(prod3, NULL);
+
+    pthread_join(cons1, NULL);
+    pthread_join(cons2, NULL);
+    pthread_join(cons3, NULL);
+
+    pthread_mutex_destroy(&mutex);
+
+    sem_destroy(&empty_slots);
+    sem_destroy(&full_slots);
+
+    return 0;
+}
+
+</code></pre>
+
+            <p>
+                In this example, the empty_slots semaphore tracks how many empty positions are available in the buffer, while the full_slots semaphore tracks how many items in the buffer are ready to be consumed. The producer threads wait on empty_slots before producing, which essentially entails that if empty_slots > 0, the producer thread can produce the value, and if empty_slots = 0, the producer thread will get blocked until an empty slot becomes available. Conversely, the consumer threads wait on full_slots before consuming from the buffer, which essentially entails that if full_slots > 0, the consumer thread can consume the value, however if full_slots = 0, the consumer thread will get blocked until a consumable value becomes available in the buffer. A mutex is still used to ensure that only one thread actually modifies the buffer at a time.
+            </p>
+
+            <p>
+                In summary, at the most fundamental level, a semaphore contains of an integer value and a queue of waiting threads. When sem_wait() is called, the system atomically checks if the value is greater than 0. If yes, then it decrements the value and the thread continues. If no, then the thread is added to the queue of waiting threads and blocked. When sem_post() is called, the system atomically increases the value and wakes up a waiting thread.
+            </p>
+
+            <p>
+                Just like mutexes, semaphores also rely on atomic operations at a hardware level to prevent race conditions on the semaphore value itself.
+            </p>
+
+            <h2>When semaphores fall short</h2>
+            <p>
+                While semaphores are much more flexible and efficient than mutexes in some cases, they are not without their shortcomings.
+            </p>
+
+            <p>
+                One major issue is that semaphores are purely count-based. They can tell you “there are n resources available” but they cannot be used to implement complex conditions such as “wake the thread up when the buffer is half-full”. For such cases, you would need to manually track the state of the buffer and use multiple semaphores, which can quickly become needlessly complex and increasingly prone to errors.
+            </p>
+
+            <p>
+                Semaphores are also blurry when it comes to the concept of ownership. While a mutex knows which thread has locked it, and can be only unlocked by that thread, a semaphore does not care which thread performs wait or signal operations. Because of this, one must be especially careful when using semaphores, as debugging them can be difficult. A common bug occurs when a thread signals a semaphore even when it hasn’t waited on it, leading to over-signalling bugs where more threads enter a critical section than intended.
+            </p>
+
+            <p>
+                In scenarios where you need complex conditions rather than simply counting resources, another synchronization primitive called conditional variables provide a more intuitive and efficient solution. In the following part of the series, we will have a look at condvars, and how they enable threads to efficiently wait for certain conditions.
+            </p>
+    
+        </article>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© Sayujya Apte</p>
+    </footer>
+
+</body>
+</html>

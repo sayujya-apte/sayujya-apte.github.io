@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sayujya Apte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.16/400-500.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism-tomorrow.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-c.min.js"></script>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="/assets/images/logo.png">
+</head>
+
+<body class="grid-pattern">
+    
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="../index.html#home" class="logo"><img src="../assets/images/logo.png" alt="Logo"></a>
+                <div class="nav-links">
+                    <a href="../index.html#about" class="nav-item nav-underline">[01] ABOUT</a>
+                    <a href="../index.html#projects" class="nav-item nav-underline">[02] PROJECTS</a>
+                    <a href="../archive.html" class="nav-item nav-underline">[03] BLOG</a>
+                    <a href="../index.html#skills" class="nav-item nav-underline">[04] SKILLS</a> 
+                    <a href="../index.html#contact" class="contact-btn">CONTACT</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+<div class="post-container container">
+
+    <a href="../archive.html" class="post-back">
+        &larr; BACK_TO_BLOG
+    </a>
+
+    <!-- Header -->
+    <header class="post-header">
+        <h1 class="post-title">Exploring x86 ASM : Runtime code modification and creating mutating programs</h1>
+
+        <div class="post-meta">
+            <span class="blog-date">January 19, 2026</span>
+
+            <div class="post-tags">
+                <span class="post-tag">x86 Assembly</span>
+                <span class="post-tag">Low-level</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Article -->
+    <article class="post-content">
+            <p>
+                Code, once written by the programmer and compiled into an executable, is usually treated as immutable. Yet, at the lowest level of execution, this immutability is more of a suggestion than a rule, enforced by operating systems rather than the hardware itself. In reality, code is just stored in the memory within the text section, and as you can with any other location in memory, you can modify it at runtime, given that you have the right privileges.
+            </p>
+
+            <p>
+                This simple realisation opens the door to several possibilities - the greatest being the ability to create programs that can mutate themselves at runtime. Functions, that are programmed to do one task, but end up doing something else entirely. In this post, we explore how we can create such mutating programs, what uses do they have, and why they can be potentially dangerous.
+            </p>
+
+            <h2>The Background</h2>
+            <p>
+                In a program's memory, code is stored as instructions in the text section. These instructions are stored in the typical opcode-operand format. Now, if a different instruction changes the value of either the opcode or the operand at the memory location of the first instruction, the first instruction has been mutated. The CPU itself won't object to this, because it only reads and interprets the memory.
+            </p>
+
+            <p>
+                The only thing stopping someone from doing so is the operating system. In a typical program, different sections of memory are assigned different privileges. Each segment has three permission bits - read, write, and execute. The text segment of the program conventionally only has read and execute privileges. This provision exists for several purposes, such as preventing malicious attacks by injecting executable code, or preventing bugs from corrupting program logic. In fact, the CPU can even cache the code more aggressively if it knows that it won't change.
+            </p>
+
+            <h2>The Implementation</h2>
+
+        <pre><code class="language-asm">section .data
+    SYSCALL_write db 4
+    SYSCALL_mprotect db 125
+    
+    PROT_READ equ 1
+    PROT_WRITE equ 2
+    PROT_EXEC equ 4
+
+    PROT_RWX equ (PROT_READ | PROT_WRITE | PROT_EXEC)
+
+    newline db 10
+
+section .bss
+    result resb 4        ; Result buffer to temporarily store value
+
+section .text
+    global _start
+
+modifiable_func:
+instr_to_modify:
+    mov eax, 5          ; Instruction that we intend to modify
+    ret
+
+_start:
+    mov eax, SYSCALL_mprotect
+    mov ebx, modifiable_func
+    and ebx, 0xFFFFF000
+    mov ecx, 4096
+    mov edx, PROT_RWX
+    int 0x80
+
+    call modifiable_func
+
+    mov eax, [result]
+    mov eax, SYSCALL_write
+    mov ebx, 1
+    mov ecx, result
+    mov edx, 1
+    int 0x80
+
+    mov eax, SYSCALL_write
+    mov ebx, 1
+    mov ecx, newline
+    mov edx, 1
+    int 0x80
+
+    mov byte [instr_to_modify + 1], 6
+
+    call modifiable_func
+
+    mov eax, [result]
+    mov eax, SYSCALL_write
+    mov ebx, 1
+    mov ecx, result
+    mov edx, 1
+    int 0x80
+
+    mov eax, 1
+    xor ebx, ebx
+    int 0x80</code></pre>
+
+            <p>
+                In the above program, we have declared the function we intend to modify in the text section. Additionally, we have also added a label to the specific instruction that we want to modify.
+            </p>
+
+            <p>
+                At the very beginning of the <code>_start</code> function, we make a system call to <code>mprotect</code>. <code>mprotect</code> is the syscall used to change the memory access protections for the calling process's memory pages. The function takes in the address, aligned to a page boundary, a size, the size of the page in consideration, and the new protection flags that are to be assigned to the memory block. In this case, we pass the address of the modifiable function, along with a page size of 4096, and requesting privileges to read, write, and execute.
+            </p>
+
+            <p>
+                Then, the program calls the modifiable function, which places 5 in the <code>eax</code> register. It then prints the contents of <code>eax</code>. After this, the program actually starts mutating code. It goes to the memory location of the instruction to be modified, moves one byte further (that one byte corresponds to the opcode), and changes the operand from a 5 to a 6. And after calling the function and printing the contents of <code>eax</code>, we can see that the mutation has succeeded.
+            </p>
+
+            <h2>Applications</h2>
+            <p>
+                Practical applications of self-modifying code are few and far between. From an optimization standpoint, mutating code can be used to optimize loops via unrolling and dynamically adjusting loop counters based on runtime data sizes, however any benefit gained from this will be negated by the performance drop caused by the loss of caching of instructions.
+            </p>
+
+            <p>
+                A more realistic use of this can be in DRM protection and anti-reverse engineering measures. For example, if a program detects that it is being run inside a debugger, it will intentionally abstract and obfuscate the code to prevent analysis and subsequent reverse engineering.
+            </p>
+
+            <p>
+                However, this paradigm can also lend itself to more malicious applications. Using this technique, one can create a polymorphic virus, with code that mutates with every infection. Changing minor things, like the instruction order or registers used can be enough to morph the signature and evade detection. This technique can also be used to create runtime metamorphic viruses, where the virus changes its own code completely while still preserving its function.
+            </p>
+
+            <h2>Conclusion</h2>
+            <p>
+                Just like most of my previous projects, this one as well is not something that should be applied in the real world. However, watching a function return different values from the exact same function call, knowing I had rewritten the instructions within mid-execution, gave me a visceral understanding of how fragile the boundary between code and data really is. The full source code of the program can be found here.
+            </p>
+
+        </article>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© Sayujya Apte</p>
+    </footer>
+
+    <script src="assets/js/script.js"></script>
+
+</body>
+
+</html>
