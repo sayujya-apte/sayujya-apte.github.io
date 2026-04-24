@@ -1,3 +1,18 @@
+         (function () {
+            const toggle = document.getElementById('mobile-toggle');
+            const menu = document.getElementById('mobile-menu');
+            if (toggle && menu) {
+                toggle.addEventListener('click', () => {
+                    menu.classList.toggle('open');
+                });
+                // Close menu when a link is clicked
+                menu.querySelectorAll('a').forEach(link => {
+                    link.addEventListener('click', () => menu.classList.remove('open'));
+                });
+            }
+        })();
+
+ 
  const elements = document.querySelectorAll('.fade-in');
 
  const observer = new IntersectionObserver((entries) => {

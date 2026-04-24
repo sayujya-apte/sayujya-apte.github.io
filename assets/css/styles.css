@@ -112,7 +112,7 @@ body {
     align-items: center;
     border: 1px solid var(--border);
     padding: 4px 8px;
-    transform: border 0.2s;
+    transition: border 0.2s;
 }
 
 .logo:hover {
@@ -144,12 +144,78 @@ body {
     color: var(--surface);
 }
 
+.mobile-menu {
+  display: none;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.mobile-menu.open {
+  display: block;
+}
+
+.mobile-links {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.mobile-links a {
+  text-decoration: none;
+  color: var(--text);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mobile-links a:last-child {
+  border-bottom: none;
+  color: var(--accent);
+}
+
+.mobile-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 6px;
+  color: var(--text);
+  transition: border-color 0.2s;
+}
+
+.mobile-toggle:hover {
+  border-color: var(--text);
+}
+
+.mobile-toggle .icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .nav-links {
+    display: flex;
+  }
+
+  .mobile-toggle {
+    display: none;
+  }
+}
+
+
+/*
 @media (min-width: 768px) {
     .nav-links {
         display: flex;
-    }
+    }   
 }
-
+*/
 /* Home */
 .home-style {
     min-height: 100vh;
@@ -376,11 +442,13 @@ body {
     .about-right {
         align-items: flex-end;
     }
+}
 
+@media (max-width: 767px) {
     .about-card {
-        width: fit-content;
-        min-width: 480px;
-        justify-self: flex-end;
+        min-width: 0;
+        max-width: 100%;
+        width: 100%;
     }
 }
 
@@ -496,6 +564,20 @@ body {
     background: var(--surface);
     border: 1px solid var(--border);
     padding: 20px 24px;
+}
+
+@media (max-width: 767px) {
+    .blog-card {
+        min-width: 0;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .blog-header {
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-start;
+    }
 }
 
 .blog-header {
