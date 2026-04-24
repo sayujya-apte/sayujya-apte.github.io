@@ -5,7 +5,7 @@
          if (entry.isIntersecting) {
              setTimeout(() => {
                  entry.target.classList.add('visible');
-             }, index * 100); // 100ms stagger
+             }, index * 100);
 
              observer.unobserve(entry.target);
          }

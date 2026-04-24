@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sayujya Apte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.16/400-500.min.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="assets/images/logo.png">
+</head>
+
+<body class="grid-pattern">
+
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="index.html#home" class="logo"><img src="assets/images/logo.png" alt="Logo"></a>
+                <div class="nav-links">
+                    <a href="index.html#about" class="nav-item nav-underline">[01] ABOUT</a>
+                    <a href="index.html#projects" class="nav-item nav-underline">[02] PROJECTS</a>
+                    <a href="index.html#blog" class="nav-item nav-underline">[03] BLOG</a> 
+                    <a href= "index.html#skills" class="nav-item nav-underline">[04] SKILLS</a> 
+                    <a href="index.html#contact" class="contact-btn">CONTACT</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Archive -->
+    <section id="blog" class="blog-style">
+        <div class="container fade-in">
+            <h2 class="section-title"><span class="section-index">[03]</span> BLOG</h2>
+            <div class="blog-list">
+
+                <a style="display: block;" href="https://sayujya-apte.github.io/posts/parsing_ambiguities/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                            Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages
+                        </h3>
+                        <span class="blog-date">April 23, 2026</span>
+                    </div>
+                    <p class="blog-description">
+                        How ambiguous grammar in programming languages confuses compilers, spawns undefined behaviour, and forces language designers to make uncomfortable choices
+                    </p>
+                    <div class="blog-tags">
+                        <span>Programming Languages</span>
+                    </div>
+                </article>
+                </a>
+
+                <a style="display: block;" href="https://sayujya-apte.github.io/posts/exploring_x86asm_part2/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                            Exploring x86 ASM : Runtime code modification and creating mutating programs
+                        </h3>
+                        <span class= "blog-date">January 19, 2026</span>
+                    </div>
+                    <p class="blog-description">
+                        Modifying instructions inside memory at program runtime to mutate program behaviour
+                    </p>
+                    <div class="blog-tags">
+                        <span>x86 Assembly</span>
+                        <span>Low-level</span>
+                    </div>
+                </article>
+                </a>
+
+                <a style="display: block;" href="https://sayujya-apte.github.io/posts/thread_synchronization_part2/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                            On Thread Synchronization : Part 2 - An overview of semaphores
+                        </h3>
+                        <span class="blog-date">December 11, 2025</span>
+                    </div>
+                    <p class="blog-description">
+                        An overview of what semaphores are and how they enable coordinated access to shared resources
+                    </p>
+                    <div class="blog-tags">
+                        <span>Linux</span>
+                        <span>Semaphores</span>
+                    </div>
+                </article>
+                </a>
+
+                <a style="display: block;" href="https://sayujya-apte.github.io/posts/thread_synchronization_part1/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                            On Thread Synchronization : Part 1 - A deep dive into mutexes
+                        </h3>
+                        <span class="blog-date">November 22, 2026</span>
+                    </div>
+                    <p class="blog-description">
+                        A close look at how mutexes work on a fundamental level, and how they are used to prevent race conditions
+                    </p>
+                    <div class="blog-tags">
+                        <span>x86 Assembly</span>
+                        <span>Low-level</span>
+                    </div>
+                </article>
+                </a>
+
+                <a style="display: block;" href="https://sayujya-apte.github.io/posts/exploring_x86asm_part1/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                            Exploring x86 ASM : Building my own malloc and free
+                        </h3>
+                        <span class="blog-date">November 17, 2026</span>
+                    </div>
+                    <p class="blog-description">
+                        Implementing memory management at the lowest level using Linux syscalls
+                    </p>
+                    <div class="blog-tags">
+                        <span>x86 Assembly</span>
+                        <span>Low-level</span>
+                    </div>
+                </article>
+                </a>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer fade-in">
+        <p>© Sayujya Apte</p>
+    </footer>
+
+    <script src="assets/js/script.js"></script>
+
+</body>
+
+</html>
