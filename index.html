@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sayujya Apte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.16/400-500.min.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="assets/images/logo.png">
+</head>
+
+<body class="grid-pattern">
+    
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="#home" class="logo"><img src="assets/images/logo.png" alt="Logo"></a>
+                <div class="nav-links">
+                    <a href="#about" class="nav-item nav-underline">[01] ABOUT</a>
+                    <a href="#projects" class="nav-item nav-underline">[02] PROJECTS</a>
+                    <a href="#blog" class="nav-item nav-underline">[03] BLOG</a>
+                    <a href="#skills" class="nav-item nav-underline">[04] SKILLS</a> 
+                    <a href="#contact" class="contact-btn">CONTACT</a>
+                </div>
+            
+
+                <button id="mobile-toggle" class="mobile-toggle" aria-label="Toggle menu">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="mobile-menu">
+            <div class="mobile-links">
+                <a href="#about">[01] ABOUT</a>
+                <a href="#projects">[02] PROJECTS</a>
+                <a href="#blog">[03] BLOG</a>
+                <a href="#skills">[04] SKILLS</a>
+                <a href="#contact">[05] CONTACT</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Home -->
+    <section id="home" class="home-style">
+        <div class="container">
+            <div class="home-grid">
+
+            	<!-- Left -->
+                <div class="home-left fade-in">
+                    <div class="home-subtitle">
+                        low_level_dev & cs_engg
+                    </div>
+                    <h1 class="home-title">Sayujya<br>Apte</h1>
+                    <p class="home-description">
+                    	Low-level Programmer focused on architecture, performance optimization, and competitive programming
+                    </p>
+                    <div class="home-buttons">
+                        <a href="#projects" class="home-btn-primary">VIEW_WORK</a>
+                        <a href="#contact" class="home-btn-secondary">GET_IN_TOUCH</a>
+                    </div>
+                </div>
+
+                <!-- Right -->
+                <div class="home-right fade-in">
+                    <div class="home-side">
+                        <div class="profile-card hover-lift">
+                        <img src="assets/images/profile.jpeg" alt="Profile photo"></div>
+                        <div class="stats-box hover-lift">
+                            <div class="stats-title">
+                                // quick_stats
+                            </div>
+                            <div class="stats-list">
+                                <div class="stats-rows">
+                                    <span class="stats-label">LOCATION</span>
+                                    <span>Vellore, IN</span>
+                                </div>
+                                <div class="stats-rows">
+                                    <span class="stats-label">EDUCATION</span>
+                                    <span>B.Tech. CSE</span>
+                                </div>
+                                <div class="stats-rows">
+                                    <span class="stats-label">STATUS</span>
+                                    <span style="color: #2563EB">OPEN_TO_WORK</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- About -->
+    <section id="about" class="about-style">
+        <div class="container fade-in">
+            <h2 class="section-title"><span class="section-index">[01]</span> ABOUT</h2>
+            <div class="about-grid">
+
+                <!-- Left -->
+                <div class="about-text fade-in">
+                    <p>
+                    	Computer Science & Engineering student at <strong>Vellore Institute of Technology</strong>. I thrive on understanding how code works at the lowest level, and how software interfaces with hardware - from CPU instruction cycles to memory management to boot procedures.
+                    </p>
+                    <p>
+                    	My work revolves around building complex systems from the ground up. Whether its a 6502 emulator, a custom miniature x86 bootloader, or asynchronous logging frameworks, I focus on performance, accuracy, and deep understanding of the underlying architecture.
+                    </p>
+                    <p>
+                    	Active in technical communities, competitive programming, and hackathons. Currently exploring OS internals, compiler design, and optimization engineering.
+                	</p>
+                </div>
+
+                <!-- Right -->
+                <div class="about-right fade-in">
+                    <div class="about-card hover-lift">
+                        <h3 class="about-card-title">Education</h3>
+                        <div class="about-card-content">
+                            <div class="education-block">
+                                <div class="education-title">
+                                    B.Tech in Computer Science & Engineering
+                                </div>
+                                <div class="education-meta">
+                                    Vellore Institute of Technology &nbsp;|&nbsp; Jun 2025 - Present
+                                </div>
+                                <span class="badge">SIH 2025 PARTICIPANT</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="about-card hover-lift">
+                        <h3 class="about-card-title">Experience</h3>
+                        <div class="about-card-content">
+                            <div class="education-block">
+                                <div class="education-title">
+                                    Junior Core Committee Member
+                                </div>
+                                <div class="education-meta">
+                                    IEEE-CS VIT Student Chapter &nbsp;|&nbsp; Jan 2026 - Present
+                                </div>
+                                <span class="badge">COMPETITVE CODING</span>
+                                <span class="badge">EVENTS</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Projects -->
+    <section id="projects" class="projects-style">
+        <div class="container fade-in">
+            <h2 class="section-title"><span class="section-index">[02]</span> PROJECTS</h2>
+            <div class="projects-grid">
+                
+                <a style="display: block;" href="https://github.com/sayujya-apte/ZeroPage6502">
+                <article class="project-card hover-lift fade-in">
+                    <div class="project-header">
+                        <h3 class="project-title">ZeroPage6502</h3>
+                        <span class="project-tag">C</span>
+                    </div>
+                    <p class="project-description">
+                    	Lightweight fully featured 6502 emulator built from scratch. Implemented instruction decoding, all addressing modes, flag behavior, and memory access, working directly from the original 6502 specification.
+                	</p>
+                    <div class="project-meta">
+                        Emulation &nbsp;|&nbsp; Low-Level
+                    </div>
+                </article>
+            	</a> 
+
+            	<a style="display: block;" href="https://github.com/sayujya-apte/Liftoff">
+                <article class="project-card hover-lift fade-in">
+                    <div class="project-header">
+                        <h3 class="project-title">Liftoff</h3>
+                        <span class="project-tag">x86 ASM, C</span>
+                    </div>
+                    <p class="project-description">
+                    	Minimal 32-bit x86 bootloader that brings the CPU from real mode to protected mode and transfers control to a C-based entry point. Includes a GDT built from scratch as well as manual memory layout handling.
+                    </p>
+                    <div class="project-meta">
+                        Bootloader &nbsp;|&nbsp; OS Dev
+                    </div>
+                </article>
+            	</a> 
+
+                <a style="display: block;" href="https://github.com/sayujya-apte/atop">
+                <article class="project-card hover-lift fade-in">
+                    <div class="project-header">
+                        <h3 class="project-title">atop</h3>
+                        <span class="project-tag">C, ncurses</span>
+                    </div>
+                    <p class="project-description">
+                    	Terminal-based system monitor inspired by htop. Pulls data live from /proc and renders it in a real-time TUI. Good exercise in Linux internals.
+                	</p>
+                    <div class="project-meta">
+                        Linux &nbsp;|&nbsp; TUI
+                    </div>
+                </article>
+            	</a> 
+
+            	<a style="display: block;" href="https://github.com/sayujya-apte/AsyncLog">
+                <article class="project-card hover-lift fade-in">
+                    <div class="project-header">
+                        <h3 class="project-title">AsyncLog</h3>
+                        <span class="project-tag">C++</span>
+                    </div>
+                    <p class="project-description">
+                	    Asynchronous logging framework designed to eliminate I/O bottlenecks in multithreaded applications. Implemented using a thread-safe producer-consumer queue to keep logging off the critical path.
+                	</p>
+                    <div class="project-meta">
+                        OOP &nbsp;|&nbsp; Concurrency
+                    </div>
+                </article>
+            	</a>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Blog -->
+    <section id="blog" class="blog-style">
+        <div class="container fade-in">
+            <h2 class="section-title"><span class="section-index">[03]</span> BLOG</h2>
+            <div class="blog-list">
+
+                <a style="display: block;" href="https://sayujya-apte.github.io/posts/parsing_ambiguities/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                        	Dangling-else and the Most Vexing Parse: Classic ambiguities in programming languages
+                        </h3>
+                        <span class="blog-date">April 23, 2026</span>
+                    </div>
+                    <p class="blog-description">
+                    	How ambiguous grammar in programming languages confuses compilers, spawns undefined behaviour, and forces language designers to make uncomfortable choices
+                	</p>
+                    <div class="blog-tags">
+                        <span>Programming Languages</span>
+                    </div>
+                </article>
+            	</a>
+
+				<a style="display: block;" href="https://sayujya-apte.github.io/posts/exploring_x86asm_part2/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                        	Exploring x86 ASM : Runtime code modification and creating mutating programs
+                        </h3>
+                        <span class="blog-date">January 19, 2026</span>
+                    </div>
+                    <p class="blog-description">
+                    	Modifying instructions inside memory at program runtime to mutate program behaviour
+                    </p>
+                    <div class="blog-tags">
+                        <span>x86 Assembly</span>
+                        <span>Low-level</span>
+                    </div>
+                </article>
+            	</a>
+
+            	<a style="display: block;" href="https://sayujya-apte.github.io/posts/exploring_x86asm_part2/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                        	On Thread Synchronization : Part 2 - An overview of semaphores
+                    	</h3>
+                    	<span class="blog-date">December 11, 2025</span>
+                    </div>
+                    <p class="blog-description">
+                    	An overview of what semaphores are and how they enable coordinated access to shared resources
+                	</p>
+                    <div class="blog-tags">
+                        <span>Linux</span>
+                        <span>Semaphores</span>
+                    </div>
+                </article>
+            	</a>
+
+            	<a style="display: block;" href="https://sayujya-apte.github.io/posts/exploring_x86asm_part2/">
+                <article class="blog-card hover-lift fade-in">
+                    <div class="blog-header">
+                        <h3 class="blog-title">
+                        	On Thread Synchronization : Part 1 - A deep dive into mutexes
+                        </h3>
+                        <span class="blog-date">November 22, 2026</span>
+                    </div>
+                    <p class="blog-description">
+                    	A close look at how mutexes work on a fundamental level, and how they are used to prevent race conditions
+                    </p>
+                    <div class="blog-tags">
+                        <span>x86 Assembly</span>
+                        <span>Low-level</span>
+                    </div>
+                </article>
+            	</a>
+                
+                <div class="blog-cta fade-in">
+                    <a href="archive.html"
+                    class="blog-btn">VIEW ALL POSTS</a>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Skills -->
+    <section id="skills" class="skills-style">
+        <div class="container fade-in">
+            <h2 class="section-title"><span class="section-index">[04]</span> SKILLS</h2>
+            <div class="skills-grid">
+
+                <!-- Languages -->
+                <div class="skills-card hover-lift fade-in">
+                    <h3 class="skills-card-title">Languages</h3>
+                    <div class="skills-list">
+                        <span class="skills-item">C</span>
+                        <span class="skills-item">C++</span>
+                        <span class="skills-item">x86 Assembly</span>
+                        <span class="skills-item">Python</span>
+                        <span class="skills-item">Shell</span>
+                    </div>
+                </div>
+
+                <!-- Tools -->
+                <div class="skills-card hover-lift fade-in">
+                    <h3 class="skills-card-title">Tools & Environments</h3>
+                    <div class="skills-list">
+                        <span class="skills-item">Linux</span>
+                        <span class="skills-item">CMake</span>
+                        <span class="skills-item">QEMU/KVM</span>
+                        <span class="skills-item">GDB</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact -->
+    <section id="contact" class="contact-style">
+        <div class="contact-container fade-in">
+            <h2 class="section-title"><span class="section-index">[05]</span> CONTACT</h2>
+            <p class="contact-description">
+            	Open to discussing systems programming, collaboration opportunities, or low-level stuff. Reach out via email or connect below.
+        	</p>
+            <div class="contact-links">
+                <a href="mailto:sayujyaapte@gmail.com" class="contact-link">EMAIL</a>
+                <a href="https://github.com/sayujya-apte" class="contact-link">GITHUB</a>
+                <a href="https://linkedin.com/in/sayujya-apte" class="contact-link">LINKEDIN</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer fade-in">
+        <p>© Sayujya Apte</p>
+    </footer>
+
+    <script src="assets/js/script.js"></script>
+
+</body>
+
+</html>

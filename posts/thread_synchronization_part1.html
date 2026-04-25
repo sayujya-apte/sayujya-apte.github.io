@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>On Thread Synchronization : Part 1 - A deep dive into mutexes | Sayujya Apte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.16/400-500.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism-tomorrow.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-c.min.js"></script>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="/assets/images/logo.png">
+</head>
+
+<body class="grid-pattern">
+
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-inner">
+                <a href="../index.html#home" class="logo"><img src="../assets/images/logo.png" alt="Logo"></a>
+                <div class="nav-links">
+                    <a href="../index.html#about" class="nav-item nav-underline">[01] ABOUT</a>
+                    <a href="../index.html#projects" class="nav-item nav-underline">[02] PROJECTS</a>
+                    <a href="../archive.html" class="nav-item nav-underline">[03] BLOG</a>
+                    <a href="../index.html#skills" class="nav-item nav-underline">[04] SKILLS</a> 
+                    <a href="../index.html#contact" class="contact-btn">CONTACT</a>
+                </div>
+            
+
+                <button id="mobile-toggle" class="mobile-toggle" aria-label="Toggle menu">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="mobile-menu">
+            <div class="mobile-links">
+                <a href="../index.html#about">[01] ABOUT</a>
+                <a href="../index.html#projects">[02] PROJECTS</a>
+                <a href="../archive.html">[03] BLOG</a>
+                <a href="../index.html#skills">[04] SKILLS</a>
+                <a href="../index.html#contact">[05] CONTACT</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="post-container container">
+
+        <a href="../archive.html" class="post-back">
+            &larr; BACK_TO_BLOG
+        </a>
+
+        <!-- Header -->
+        <header class="post-header">
+            <h1 class="post-title">
+                On Thread Synchronization : Part 1 - A deep dive into mutexes
+            </h1>
+
+            <div class="post-meta">
+                <span class="blog-date">November 22, 2025</span>
+
+                <div class="post-tags">
+                    <span class="post-tag">Linux</span>
+                    <span class="post-tag">Mutex</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Article -->
+        <article class="post-content">
+
+            <p>
+                Multithreaded programming offers many benefits - speed, efficiency, and the ability to harness every core that your processor has to offer. But of course, there is a catch - shared memory. When two or more threads try to access the same data, you enter a domain where unpredictability becomes a real concern. In such a scenario, the timing of thread execution can dramatically influence the outcome.
+            </p>
+
+            <p>
+                This is where mutexes come into play. A mutex provides a way to manage shared resources such that only one thread can access a given resource at a time, thus preventing undesirable side-effects.
+            </p>
+
+            <h2>The Problem - Race Conditions</h2>
+            <p>
+                A race condition is a bug where the outcome of a program depends on the unpredictable timing of two or more threads accessing a shared resource. In simple words, when multiple threads try to modify the same chunk of memory without proper coordination, the outcome is unpredictable.
+            </p>
+
+            <p>
+                Let us take the following example:
+            </p>
+
+            <pre><code class="language-C">#include &lt;stdio.h&gt;
+#include &lt;pthread.h&gt;
+
+int count = 0;
+
+void* increment_count(void* arg)
+{
+    for (int i = 0; i &lt; 1000000; i++)
+    {
+        count += 1;
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    pthread_t thread_1, thread_2;
+
+    pthread_create(&thread_1, NULL, &increment_count, NULL);
+    pthread_create(&thread_2, NULL, &increment_count, NULL);
+
+    pthread_join(thread_1, NULL);
+    pthread_join(thread_2, NULL);
+
+    printf("%d\n", count);
+
+    return 0;
+}
+</code></pre>
+
+            <p>
+                Here, logically we would expect the value of <code>count</code> to be 2,000,000. However, that is not true, and the actual value is an arbitrary value between 1,000,000 and 2,000,000.
+            </p>
+
+            <p>But why are these race conditions brought about? The key issue is that operations we think of as “single step” are actually multiple steps at the CPU level.</p>
+
+            <p>
+                Take the simple <code>count += 1</code> operation. While it may seem like an atomic operation, at the CPU level, it is actually performed in three different steps:
+            </p>
+
+            <ul>
+                <li>Read the current value of <code>count</code> from memory into a register</li>
+                <li>Increment the value of the register</li>
+                <li>Write the new value back into memory</li>
+            </ul>
+
+            <p>
+                When two threads execute this operation simultaneously, their operations can overlap in ways that can cause non-deterministic behaviour. We can see one such instance as follows:
+            </p>
+
+            <ul>
+                <li>Thread 1 reads <code>count</code> - let us assume it to be 1000.</li>
+                <li>Thread 2 reads <code>count</code> - which is still 1000, because Thread 1 hasn’t incremented and written back yet.</li>
+                <li>Thread 1 increments, getting 1001.</li>
+                <li>Thread 2 increments, getting 1001.</li>
+                <li>Thread 1 writes back 1001 to memory.</li>
+                <li>Thread 2 also writes back writes 1001 to memory.</li>
+            </ul>
+
+            <p>Both threads are individually behaving as expected, but the combined outcome is 1001 instead of 1002. This is called a lost update.</p>
+            <p>A race condition refers to this “race” in between the threads over who complete the read-modify-write sequence before another thread interferes.</p>
+
+            <h2>The Solution - Mutex</h2>
+            <p>
+                So, if race conditions arise due to multiple threads racing to modify the same resource, why not just coordinate the threads such that only one of them can modify the resource at a given time? Well, mutexes are one of such mechanisms used to coordinate threads.
+            </p>
+
+            <p>
+                Mutexes or mutex locks are a synchronization mechanism used to prevent multiple threads from accessing a shared resource at the same time.
+            </p>
+
+            <p>
+                Our previous program would look something like this if we implemented mutexes:
+            </p>
+
+<pre><code class="language-C">#include &lt;stdio.h&gt;
+#include &lt;pthread.h&gt;
+
+int count = 0;
+pthread_mutex_t mutex;
+
+void* increment_count()
+{
+    for (int i = 0; i &lt; 1000000; i++)
+    {
+        pthread_mutex_lock(&mutex);
+        count += 1;
+        pthread_mutex_unlock(&mutex);
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    pthread_t thread_1, thread_2;
+
+    pthread_mutex_init(&mutex, NULL);
+
+    pthread_create(&thread_1, NULL, &increment_count, NULL);
+    pthread_create(&thread_2, NULL, &increment_count, NULL);
+
+    pthread_join(thread_1, NULL);
+    pthread_join(thread_2, NULL);
+
+    pthread_mutex_destroy(&mutex);
+
+    printf("%d\n", count);
+
+    return 0;
+}
+</code></pre>
+
+            <p>
+                Now, we can observe that we consistently get the same expected output i.e. 2,000,000. The mutex, upon being locked, only allows the thread which has locked it to perform operations for the duration of it being locked. While this can lead to minor performance reduction, it fulfills the goal of preserving determinism.
+            </p>
+
+            <p>
+                At the most fundamental level, a mutex is just an integer value (0 or 1) that tells a thread whether a lock has been acquired or not. If the thread reads the mutex as 1, it will continue to “spin” until it becomes 0. If it reads the mutex as 0, it will lock the mutex and continue with its operations.
+            </p>
+
+            <p>
+                Now one might naturally wonder, since a mutex also exists in shared memory, what if two threads happen to try to lock a mutex at the same time? Wouldn’t this lead to a race condition? Well, to answer that question, we would have to descend to a much lower level, closer to the CPU.
+            </p>
+
+            <h3>Atomic Operations</h3>
+            <p>
+                Mutexes are built on top of low-level atomic operations provided by the hardware, like test-and-set, compare-and-swap, etc. These instructions, unlike the previously mentioned increment instruction, are atomic i.e. they are executed as a single indivisible step. Because of this, when one thread tries to acquire a lock, no other thread can interrupt the process, leading to the elimination of race conditions.
+            </p>
+
+            <h2>When mutexes fall short</h2>
+            <p>
+                While mutexes are a crucial thread synchronization method, they aren’t always the best choice. Mutexes can introduce performance bottlenecks, especially in scenarios where multiple threads are competing for the same lock. Moreover, mutexes struggle in scenarios where you need more nuanced control over resource access. In cases like these, more advanced synchronization primitives - such as semaphores and condvars - are used instead of mutexes.
+            </p>
+
+            <p>
+                In the following part of this series, we will explore how semaphores can address some of the limitations of mutexes, offering better performance in certain use cases.
+            </p>
+
+        </article>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© Sayujya Apte</p>
+    </footer>
+
+</body>
+</html>
